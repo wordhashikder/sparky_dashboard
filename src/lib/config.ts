@@ -1,0 +1,22 @@
+/** Build-time configuration (Vite inlines `VITE_*` variables). */
+
+function trimSlash(value: string) {
+  return value.replace(/\/+$/, "");
+}
+
+export const config = {
+  apiUrl: trimSlash(
+    import.meta.env.VITE_API_URL ?? "http://localhost:8000/api/v1",
+  ),
+  siteUrl: trimSlash(import.meta.env.VITE_SITE_URL ?? "http://localhost:3000"),
+};
+
+/** Links to the public website. Pages end with a slash, as on the site. */
+export const siteLinks = {
+  installer: (slug: string) => `${config.siteUrl}/uk/installer/${slug}/`,
+  location: (slug: string) =>
+    `${config.siteUrl}/uk/ev-charger-installers/${slug}/`,
+  blogPost: (slug: string) => `${config.siteUrl}/blog/${slug}/`,
+  forgotPassword: `${config.siteUrl}/installer/forgot-password/`,
+  join: `${config.siteUrl}/join/`,
+};
