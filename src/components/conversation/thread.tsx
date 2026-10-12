@@ -81,14 +81,19 @@ export function JobSummary({ detail }: { detail: ConversationDetail }) {
   );
 }
 
+/** Whose side the reader is on: their own messages sit on the right. */
+export type Perspective = "installer" | "team";
+
 export function MessageBubble({
   message,
   installerName,
   homeownerName,
+  perspective = "installer",
 }: {
   message: ConversationMessage;
   installerName: string;
   homeownerName: string;
+  perspective?: Perspective;
 }) {
   if (message.sender === "system") {
     return (
@@ -97,7 +102,7 @@ export function MessageBubble({
       </p>
     );
   }
-  const mine = message.sender === "installer";
+  const mine = message.sender === perspective;
   const author =
     message.sender === "installer"
       ? installerName
@@ -110,8 +115,14 @@ export function MessageBubble({
         className={cn(
           "max-w-[85%] rounded-2xl px-4 py-2.5",
           mine
-            ? "rounded-br-sm bg-primary text-white"
-            : "rounded-bl-sm border border-line bg-white text-ink",
+            ? perspective === "team"
+              ? "rounded-br-sm bg-ink text-white"
+              : "rounded-br-sm bg-primary text-white"
+            : perspective === "team" && message.sender === "installer"
+              ? "rounded-bl-sm border border-[#cfe9dc] bg-primary-soft text-ink"
+              : message.sender === "team"
+                ? "rounded-bl-sm border border-amber-200 bg-amber-50 text-ink"
+                : "rounded-bl-sm border border-line bg-white text-ink",
         )}
       >
         <p
@@ -180,15 +191,19 @@ export function OfferCard({
 export function Timeline({
   detail,
   offerActions,
+  perspective = "installer",
 }: {
   detail: ConversationDetail;
   offerActions?: (offer: Offer) => ReactNode;
+  perspective?: Perspective;
 }) {
   const entries = timeline(detail);
   if (entries.length === 0) {
     return (
       <p className="py-10 text-center text-sm">
-        No messages yet. Introduce yourself or send a quote.
+        {perspective === "team"
+          ? "No messages yet."
+          : "No messages yet. Introduce yourself or send a quote."}
       </p>
     );
   }
@@ -201,6 +216,7 @@ export function Timeline({
               message={entry.item}
               installerName={detail.installer_name}
               homeownerName={detail.homeowner_name}
+              perspective={perspective}
             />
           ) : (
             <OfferCard

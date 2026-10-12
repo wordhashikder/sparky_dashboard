@@ -1,12 +1,24 @@
 # PickASparky Dashboard
 
-The back office for PickASparky, as a React single-page app. It has two areas, and
-which one you see depends on how you sign in:
+The back office for PickASparky, as a React single-page app. Installers and the
+PickASparky team use **the same address**; what you see depends on how you sign in.
+The same URL opens each role's own page (`/` is the team's Overview or the installer's
+New Leads; `/messages` and `/settings` work the same way).
 
-| Role | Pages |
+| Who | Pages |
 |---|---|
-| **Installer** | New Leads · My Quotes & Messages · Profile settings |
-| **Admin** | Overview · Leads & Quotes · Installers · SEO & Locations · Blog · Reviews · Contact inbox · Role Matrix · Settings |
+| **Installer** | New Leads (`/`) · My Quotes & Messages (`/messages`) · Profile settings (`/settings`) |
+| **Team** | Overview (`/`) · Leads & Quotes · Messages · Installers · SEO & Locations · Website content · Blog · Reviews · Contact inbox · Users & roles (`/team`) · Settings |
+
+Team members have a **staff role**: Owner, Manager, Editor or Support. The Role Matrix
+(Users & roles › Role Matrix) decides which pages each role can open; owners always have
+everything and are the only ones who can change the matrix. The menu only shows what the
+member may use, and the API refuses the rest (`403 module_forbidden`).
+
+Old `/admin/...` links still work: they redirect to the new address.
+
+Team members join by invitation: Users & roles › Invite someone emails a link to
+`/accept-invite?token=…`, where they choose a password.
 
 The stack is React 19, Vite, React Router, TanStack Query and Tailwind CSS 4, using the
 public site's colours and fonts.

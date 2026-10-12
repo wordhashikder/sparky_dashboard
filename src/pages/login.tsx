@@ -10,11 +10,14 @@ import { homeFor, useAuth } from "@/lib/auth";
 import { siteLinks } from "@/lib/config";
 import type { Me } from "@/lib/types";
 
-/** Only same-app paths are followed after sign-in (open-redirect protection). */
+/**
+ * Only same-app paths are followed after sign-in (open-redirect protection).
+ * Pages the person may not open send them to their own home.
+ */
 function safeNext(value: string | null, user: Me) {
-  if (!value?.startsWith("/") || value.startsWith("//")) return homeFor(user);
-  const adminPath = value.startsWith("/admin");
-  return adminPath === (user.role === "admin") ? value : homeFor(user);
+  if (!value?.startsWith("/") || value.startsWith("//") || value === "/login")
+    return homeFor(user);
+  return value;
 }
 
 export function LoginPage() {

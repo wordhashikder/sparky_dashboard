@@ -1,127 +1,103 @@
-import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, XCircle } from "lucide-react";
-import type { ReactNode } from "react";
-import { ChangePasswordCard } from "@/components/account/change-password";
-import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import {
+  ChevronRight,
+  Globe,
+  KeyRound,
+  ShieldCheck,
+  SlidersHorizontal,
+  UserRound,
+  Users,
+} from "lucide-react";
+import { Link } from "react-router";
 import { PageHeader } from "@/components/ui/page-header";
-import { ErrorState, PageLoader } from "@/components/ui/states";
+import { can } from "@/lib/access";
 import { useUser } from "@/lib/auth";
-import { adminApi } from "@/lib/endpoints";
+import type { Module } from "@/lib/types";
 
-export default function SettingsPage() {
+const cards: {
+  to: string;
+  title: string;
+  text: string;
+  icon: typeof Globe;
+  module?: Module;
+}[] = [
+  {
+    to: "/settings/platform",
+    title: "Platform settings",
+    text: "Lead matching, team notifications and your organisation's details.",
+    icon: SlidersHorizontal,
+    module: "settings",
+  },
+  {
+    to: "/content",
+    title: "Website content",
+    text: "Every section, SEO title and description of the public pages.",
+    icon: Globe,
+    module: "content",
+  },
+  {
+    to: "/team",
+    title: "Users & staff",
+    text: "Invite team members, change their roles, deactivate accounts.",
+    icon: Users,
+    module: "team",
+  },
+  {
+    to: "/team?tab=roles",
+    title: "Role Matrix",
+    text: "Which parts of the dashboard each role can use.",
+    icon: ShieldCheck,
+    module: "team",
+  },
+  {
+    to: "/settings/account",
+    title: "My account",
+    text: "Your name, email and password.",
+    icon: UserRound,
+  },
+];
+
+/** Settings: one place for the platform, the website, the team and your account. */
+export default function SettingsHubPage() {
   const user = useUser();
-  const query = useQuery({
-    queryKey: ["admin", "platform"],
-    queryFn: adminApi.platform,
-  });
-
+  const visible = cards.filter(
+    (card) => !card.module || can(user, card.module),
+  );
   return (
     <>
       <PageHeader
         title="Settings"
-        description="Your account and the platform's configuration. Platform settings are environment variables on the server (see backend/.env.example)."
+        description="Manage how the marketplace runs, what the website says, and who can use this dashboard."
       />
-      <div className="grid gap-6 xl:grid-cols-2">
-        <div className="space-y-6">
-          <Card>
-            <CardHeader title="Your account" />
-            <CardBody className="space-y-3 text-sm">
-              <Row label="Email">{user.email}</Row>
-              <Row label="Role">Admin</Row>
-            </CardBody>
-          </Card>
-          <ChangePasswordCard />
-        </div>
-        <Card>
-          <CardHeader
-            title="Platform"
-            description="Read-only. Never shows secrets."
-          />
-          <CardBody>
-            {query.isPending ? (
-              <PageLoader />
-            ) : query.isError ? (
-              <ErrorState
-                error={query.error}
-                onRetry={() => void query.refetch()}
-              />
-            ) : (
-              <div className="space-y-3 text-sm">
-                <Row label="Environment">{query.data.environment}</Row>
-                <Row label="Website">{query.data.frontend_url}</Row>
-                <Row label="Dashboard">{query.data.dashboard_url}</Row>
-                <Row label="Support email">{query.data.support_email}</Row>
-                <Row label="Installers per quote request">
-                  {query.data.max_quote_matches}
-                </Row>
-                <Row label="Email (SMTP)">
-                  <Status on={query.data.email_configured} />
-                </Row>
-                <Row label="Image uploads (Cloudinary)">
-                  <Status on={query.data.image_uploads_configured} />
-                </Row>
-                <Row label="Payments (Stripe)">
-                  <Status on={query.data.payments_configured} />
-                </Row>
-                <Row label="Showcase installers">
-                  <Status
-                    on={query.data.showcase_enabled}
-                    labels={["Loaded", "Off"]}
+      <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {visible.map((card) => (
+          <li key={card.to}>
+            <Link
+              to={card.to}
+              className="group flex h-full items-start gap-4 rounded-2xl border border-line bg-white p-5 shadow-soft transition-shadow hover:shadow-card"
+            >
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
+                <card.icon aria-hidden className="size-5" strokeWidth={1.75} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center justify-between gap-2 text-[15px] font-semibold text-ink">
+                  {card.title}
+                  <ChevronRight
+                    aria-hidden
+                    className="size-4 text-subtle transition-transform group-hover:translate-x-0.5"
                   />
-                </Row>
-                <div className="border-t border-line pt-3">
-                  <p className="mb-2 text-[13px] font-semibold text-ink">
-                    Admin accounts
-                  </p>
-                  <ul className="space-y-1">
-                    {query.data.admins.map((email) => (
-                      <li key={email} className="text-ink">
-                        {email}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-2 text-xs text-subtle">
-                    Add an admin on the server with{" "}
-                    <code className="rounded bg-surface px-1">
-                      python -m app.cli create-admin
-                    </code>
-                    .
-                  </p>
-                </div>
-              </div>
-            )}
-          </CardBody>
-        </Card>
-      </div>
+                </span>
+                <span className="mt-1 block text-[13px]">{card.text}</span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {!can(user, "settings") ? (
+        <p className="mt-6 flex items-center gap-2 text-xs text-subtle">
+          <KeyRound aria-hidden className="size-3.5" />
+          Some settings aren't in your role.
+        </p>
+      ) : null}
     </>
-  );
-}
-
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <span>{label}</span>
-      <span className="break-all text-right text-ink">{children}</span>
-    </div>
-  );
-}
-
-function Status({
-  on,
-  labels = ["Configured", "Not configured"],
-}: {
-  on: boolean;
-  labels?: [string, string];
-}) {
-  return on ? (
-    <span className="inline-flex items-center gap-1.5 text-forest">
-      <CheckCircle2 aria-hidden className="size-4 text-primary" />
-      {labels[0]}
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1.5 text-amber-800">
-      <XCircle aria-hidden className="size-4 text-amber-600" />
-      {labels[1]}
-    </span>
   );
 }

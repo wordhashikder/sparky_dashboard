@@ -121,5 +121,5 @@ export function useUser(): Me {
   return auth.user;
 }
 
-export const homeFor = (user: Me) =>
-  user.role === "admin" ? "/admin" : "/leads";
+/** Admins and installers share one address; the home page depends on the role. */
+export const homeFor = (_user: Me) => "/";

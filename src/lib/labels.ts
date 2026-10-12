@@ -3,6 +3,7 @@ import type {
   DirectoryColumn,
   InstallerSource,
   InstallerStatus,
+  LeadStage,
   LeadStatus,
   OfferStatus,
   Plan,
@@ -51,6 +52,19 @@ export const quoteStatusLabels: Record<QuoteStatus, string> = {
   matched: "Matched",
   unmatched: "Unmatched",
 };
+
+/** How far a quote request has got (see the API's `services/lead_stats.py`). */
+export const stageLabels: Record<LeadStage, string> = {
+  open: "Open",
+  awaiting: "Awaiting decision",
+  closed: "Closed",
+};
+
+export const stageTones = {
+  open: "blue",
+  awaiting: "amber",
+  closed: "green",
+} as const satisfies Record<LeadStage, string>;
 
 export const offerStatusLabels: Record<OfferStatus, string> = {
   sent: "Awaiting answer",

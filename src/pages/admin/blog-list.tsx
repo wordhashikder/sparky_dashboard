@@ -30,7 +30,7 @@ export default function BlogListPage() {
         title="Blog"
         description="Write, schedule and publish the articles on the public blog."
         actions={
-          <ButtonLink to="/admin/blog/new">
+          <ButtonLink to="/blog/new">
             <Plus aria-hidden className="size-4" />
             New article
           </ButtonLink>
@@ -65,7 +65,7 @@ export default function BlogListPage() {
         ) : query.data.items.length === 0 ? (
           <EmptyState
             title="No articles yet"
-            action={<ButtonLink to="/admin/blog/new">Write one</ButtonLink>}
+            action={<ButtonLink to="/blog/new">Write one</ButtonLink>}
           />
         ) : (
           <Table>
@@ -88,7 +88,7 @@ export default function BlogListPage() {
                   <Tr key={post.id}>
                     <Td>
                       <Link
-                        to={`/admin/blog/${post.id}`}
+                        to={`/blog/${post.id}`}
                         className="font-medium text-primary hover:underline"
                       >
                         {post.title}

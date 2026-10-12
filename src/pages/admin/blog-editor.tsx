@@ -71,7 +71,7 @@ function Editor({ post }: { post?: AdminBlogPost }) {
       void refresh();
       queryClient.setQueryData(["admin", "blog-post", saved.id], saved);
       toast.success(post ? "Article saved." : "Article created.");
-      if (!post) navigate(`/admin/blog/${saved.id}`, { replace: true });
+      if (!post) navigate(`/blog/${saved.id}`, { replace: true });
     },
     onError,
   });
@@ -80,7 +80,7 @@ function Editor({ post }: { post?: AdminBlogPost }) {
     onSuccess: () => {
       void refresh();
       toast.success("Article deleted.");
-      navigate("/admin/blog");
+      navigate("/blog");
     },
     onError,
   });
@@ -130,7 +130,7 @@ function Editor({ post }: { post?: AdminBlogPost }) {
   return (
     <>
       <Link
-        to="/admin/blog"
+        to="/blog"
         className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline"
       >
         <ArrowLeft aria-hidden className="size-4" />

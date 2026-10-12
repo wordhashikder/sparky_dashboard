@@ -13,6 +13,8 @@ export const config = {
 
 /** Links to the public website. Pages end with a slash, as on the site. */
 export const siteLinks = {
+  home: `${config.siteUrl}/`,
+  page: (path: string) => `${config.siteUrl}${path}`,
   installer: (slug: string) => `${config.siteUrl}/uk/installer/${slug}/`,
   location: (slug: string) =>
     `${config.siteUrl}/uk/ev-charger-installers/${slug}/`,

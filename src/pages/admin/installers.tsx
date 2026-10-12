@@ -4,9 +4,14 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { ExternalLink, Mail, Search, Send } from "lucide-react";
+import { ExternalLink, FileUp, Mail, Plus, Search, Send } from "lucide-react";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { useSearchParams } from "react-router";
+import {
+  AddInstallerDrawer,
+  DetailsForm,
+  ImportDrawer,
+} from "@/components/installers/installer-forms";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -16,6 +21,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
 import { EmptyState, ErrorState, PageLoader } from "@/components/ui/states";
 import { Table, Td, Th, Tr } from "@/components/ui/table";
+import { Tabs } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api";
 import { siteLinks } from "@/lib/config";
@@ -41,8 +47,10 @@ const STATUSES = Object.keys(installerStatusLabels) as InstallerStatus[];
 const PLANS = Object.keys(planLabels) as Plan[];
 
 export default function InstallersPage() {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const [page, setPage] = useState(1);
+  const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Omit<InstallerFilters, "q">>({
     status: (params.get("status") as InstallerStatus | null) ?? "",
@@ -50,7 +58,13 @@ export default function InstallersPage() {
     plan: "",
     claimed: "",
   });
-  const [openId, setOpenId] = useState<string | null>(null);
+  const openId = params.get("open");
+  const setOpenId = (id: string | null) => {
+    const copy = new URLSearchParams(params);
+    if (id) copy.set("open", id);
+    else copy.delete("open");
+    setParams(copy, { replace: true });
+  };
   const q = useDebounced(search);
   const query = useQuery({
     queryKey: ["admin", "installers", { page, q, ...filters }],
@@ -70,10 +84,41 @@ export default function InstallersPage() {
     <>
       <PageHeader
         title="Installers"
-        description="Every business on PickASparky: approve new sign-ups, manage plans, and invite free listings to claim their profile."
+        description="Every business on PickASparky: approve new sign-ups, manage plans, add or import listings, and invite free listings to claim their profile."
+        actions={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => setImporting(true)}
+              icon={<FileUp aria-hidden className="size-4" />}
+            >
+              Import CSV
+            </Button>
+            <Button
+              onClick={() => setAdding(true)}
+              icon={<Plus aria-hidden className="size-4" />}
+            >
+              Add installer
+            </Button>
+          </>
+        }
+      />
+      <Tabs
+        label="Status"
+        value={filters.status || "all"}
+        onChange={(value) =>
+          setFilter("status", value === "all" ? "" : (value as InstallerStatus))
+        }
+        tabs={[
+          { value: "all", label: "All installers" },
+          ...STATUSES.map((key) => ({
+            value: key,
+            label: installerStatusLabels[key],
+          })),
+        ]}
       />
       <Card>
-        <div className="grid gap-3 border-b border-line p-4 md:grid-cols-[1fr_auto_auto_auto_auto]">
+        <div className="grid gap-3 border-b border-line p-4 md:grid-cols-[1fr_auto_auto_auto]">
           <div className="relative">
             <Search
               aria-hidden
@@ -94,12 +139,6 @@ export default function InstallersPage() {
               className="pl-9"
             />
           </div>
-          <FilterSelect
-            label="Status"
-            value={filters.status ?? ""}
-            onChange={(value) => setFilter("status", value as InstallerStatus)}
-            options={STATUSES.map((key) => [key, installerStatusLabels[key]])}
-          />
           <FilterSelect
             label="Plan"
             value={filters.plan ?? ""}
@@ -208,6 +247,15 @@ export default function InstallersPage() {
         ) : null}
       </Card>
       <InstallerDrawer id={openId} onClose={() => setOpenId(null)} />
+      <AddInstallerDrawer
+        open={adding}
+        onClose={() => setAdding(false)}
+        onCreated={(installer) => {
+          setAdding(false);
+          setOpenId(installer.id);
+        }}
+      />
+      <ImportDrawer open={importing} onClose={() => setImporting(false)} />
     </>
   );
 }
@@ -254,14 +302,17 @@ function InstallerDrawer({
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const query = useQuery({
     queryKey: ["admin", "installer", id],
     queryFn: () => adminApi.installer(id ?? ""),
     enabled: !!id,
   });
 
-  const onError = (error: unknown) =>
+  const onError = (error: unknown) => {
+    if (error instanceof ApiError && error.fields) setErrors(error.fields);
     toast.error(error instanceof ApiError ? error.message : "Couldn't save.");
+  };
   const onSaved = (installer: AdminInstaller) => {
     queryClient.setQueryData(["admin", "installer", installer.id], installer);
     void queryClient.invalidateQueries({ queryKey: ["admin", "installers"] });
@@ -272,7 +323,8 @@ function InstallerDrawer({
       adminApi.updateInstaller(id ?? "", body),
     onSuccess: (installer) => {
       onSaved(installer);
-      toast.success("Installer updated.");
+      setErrors({});
+      toast.success("Installer updated. The website shows the change now.");
     },
     onError,
   });
@@ -293,6 +345,7 @@ function InstallerDrawer({
     <Drawer
       open={!!id}
       onClose={onClose}
+      wide
       title={installer?.business_name ?? "Installer"}
       description={
         installer
@@ -343,6 +396,17 @@ function InstallerDrawer({
             <Item label="Claimed">{formatDate(installer.claimed_at)}</Item>
             <Item label="Approved">{formatDate(installer.approved_at)}</Item>
           </dl>
+
+          <section className="space-y-3">
+            <h3 className="text-[13px] font-semibold">Business details</h3>
+            <DetailsForm
+              key={installer.id}
+              installer={installer}
+              saving={update.isPending}
+              errors={errors}
+              onSave={(body) => update.mutate(body)}
+            />
+          </section>
 
           <section className="space-y-3">
             <h3 className="text-[13px] font-semibold">Listing</h3>

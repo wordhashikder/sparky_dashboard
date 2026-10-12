@@ -5,8 +5,10 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import {
+  Clock,
   FileCheck2,
   Mail,
+  MapPin,
   MessageSquare,
   Phone,
   Star,
@@ -14,11 +16,13 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { QuoteForm } from "@/components/conversation/quote-form";
 import { UpgradeCard } from "@/components/installer/upgrade-card";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Notice, Select } from "@/components/ui/form";
+import { ProgressBar } from "@/components/ui/kpi-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
 import { StatCard } from "@/components/ui/stat-card";
@@ -28,24 +32,23 @@ import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api";
 import { installerApi } from "@/lib/endpoints";
 import { formatDate, timeAgo } from "@/lib/format";
-import { answer, leadStatusLabels } from "@/lib/labels";
+import { answer, leadStatusLabels, offerStatusLabels } from "@/lib/labels";
+import { useInstallerSummary } from "@/lib/queries";
 import type { Enquiry, Lead, LeadStatus } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const nextStatuses: LeadStatus[] = ["viewed", "contacted", "won", "lost"];
 
 export default function LeadsPage() {
   const [tab, setTab] = useState<"leads" | "enquiries">("leads");
-  const summary = useQuery({
-    queryKey: ["installer", "summary"],
-    queryFn: installerApi.summary,
-  });
+  const summary = useInstallerSummary();
   const s = summary.data;
 
   return (
     <>
       <PageHeader
         title="New Leads"
-        description="Quote requests matched to your service area, and enquiries sent from your profile."
+        description="Quote requests matched to your service area, and enquiries sent from your profile. Reply fast: homeowners usually choose from the first quotes they get."
       />
       {s ? (
         <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -129,11 +132,32 @@ function useStartConversation() {
 
 function LeadList({ canReply }: { canReply: boolean }) {
   const [page, setPage] = useState(1);
+  const toast = useToast();
+  const [quoteFor, setQuoteFor] = useState<{ id: string; name: string } | null>(
+    null,
+  );
   const query = useQuery({
     queryKey: ["installer", "leads", page],
     queryFn: () => installerApi.leads(page),
     placeholderData: keepPreviousData,
   });
+  const start = useMutation({
+    mutationFn: installerApi.startConversation,
+    onError: (error) =>
+      toast.error(
+        error instanceof ApiError ? error.message : "Couldn't open the lead.",
+      ),
+  });
+
+  async function openQuote(lead: Lead) {
+    const existing = lead.progress?.conversation_id;
+    if (existing) {
+      setQuoteFor({ id: existing, name: lead.quote.first_name });
+      return;
+    }
+    const conversation = await start.mutateAsync({ lead_id: lead.id });
+    setQuoteFor({ id: conversation.id, name: conversation.homeowner_name });
+  }
 
   if (query.isPending) return <PageLoader />;
   if (query.isError)
@@ -142,35 +166,65 @@ function LeadList({ canReply }: { canReply: boolean }) {
     );
   const { items, total, pages } = query.data;
 
-  return (
-    <Card>
-      {items.length === 0 ? (
+  if (items.length === 0)
+    return (
+      <Card>
         <EmptyState
           title="No leads yet"
           text="When a homeowner in your service area asks for quotes, their request appears here and we email you straight away."
         />
-      ) : (
-        <ul className="divide-y divide-line">
-          {items.map((lead) => (
-            <LeadItem key={lead.id} lead={lead} canReply={canReply} />
-          ))}
-        </ul>
-      )}
-      <Pagination
-        page={page}
-        pages={pages}
-        total={total}
-        onChange={setPage}
-        noun="leads"
-      />
-    </Card>
+      </Card>
+    );
+
+  return (
+    <>
+      <ul className="grid gap-4 xl:grid-cols-2">
+        {items.map((lead) => (
+          <li key={lead.id}>
+            <LeadCard
+              lead={lead}
+              canReply={canReply}
+              opening={start.isPending && start.variables?.lead_id === lead.id}
+              onQuote={() => void openQuote(lead).catch(() => undefined)}
+            />
+          </li>
+        ))}
+      </ul>
+      <Card className="mt-4">
+        <Pagination
+          page={page}
+          pages={pages}
+          total={total}
+          onChange={setPage}
+          noun="leads"
+        />
+      </Card>
+      {quoteFor ? (
+        <QuoteForm
+          conversationId={quoteFor.id}
+          homeownerName={quoteFor.name}
+          open
+          onClose={() => setQuoteFor(null)}
+        />
+      ) : null}
+    </>
   );
 }
 
-function LeadItem({ lead, canReply }: { lead: Lead; canReply: boolean }) {
+function LeadCard({
+  lead,
+  canReply,
+  opening,
+  onQuote,
+}: {
+  lead: Lead;
+  canReply: boolean;
+  opening: boolean;
+  onQuote: () => void;
+}) {
   const queryClient = useQueryClient();
   const toast = useToast();
-  const start = useStartConversation();
+  const navigate = useNavigate();
   const update = useMutation({
     mutationFn: (status: LeadStatus) =>
       installerApi.updateLead(lead.id, status),
@@ -184,102 +238,155 @@ function LeadItem({ lead, canReply }: { lead: Lead; canReply: boolean }) {
       ),
   });
   const q = lead.quote;
+  const progress = lead.progress;
+  const quoted = progress?.my_quote_status;
   const answers: [string, string][] = [
-    ["Installation", answer(q.installation_type)],
     ["Charger location", answer(q.charger_location, "ChargerLocation")],
     ["Existing charger", answer(q.existing_charger)],
     ["Charger choice", answer(q.charger_followup)],
     ["Fuse box", answer(q.fuse_box_distance)],
     ["Vehicle", q.vehicle ?? (q.vehicle_undecided ? "Not chosen yet" : "—")],
-    ["Timing", answer(q.timing)],
   ];
 
   return (
-    <li className="px-5 py-5">
+    <article
+      className={cn(
+        "flex h-full flex-col rounded-2xl border bg-white p-5 shadow-soft",
+        lead.status === "sent" ? "border-primary/40" : "border-line",
+      )}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-[15px] font-semibold">
-              {q.first_name} · {q.district ?? q.postcode}
-            </h3>
+            <h3 className="text-base font-semibold">{q.first_name}</h3>
             <Badge tone={statusTone[lead.status]}>
               {leadStatusLabels[lead.status]}
             </Badge>
+            {quoted ? (
+              <Badge tone={statusTone[quoted]}>
+                Your quote: {offerStatusLabels[quoted].toLowerCase()}
+              </Badge>
+            ) : null}
           </div>
-          <p className="mt-0.5 text-xs text-subtle">
-            {q.reference} · {q.postcode} · received {timeAgo(lead.created_at)}
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle">
+            <span className="flex items-center gap-1">
+              <MapPin aria-hidden className="size-3.5" />
+              {q.district ?? q.postcode}
+              {progress?.distance_miles != null
+                ? ` · ${progress.distance_miles} mi away`
+                : ""}
+            </span>
+            <span className="flex items-center gap-1">
+              <Clock aria-hidden className="size-3.5" />
+              {timeAgo(lead.created_at)}
+            </span>
+            <span>{q.reference}</span>
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="sr-only" htmlFor={`status-${lead.id}`}>
-            Lead status
-          </label>
-          <Select
-            id={`status-${lead.id}`}
-            className="h-9 w-auto text-[13px]"
-            value={lead.status}
-            disabled={update.isPending}
-            onChange={(event) =>
-              update.mutate(event.target.value as LeadStatus)
-            }
+        <label className="sr-only" htmlFor={`status-${lead.id}`}>
+          Lead status
+        </label>
+        <Select
+          id={`status-${lead.id}`}
+          className="h-8 w-auto text-[13px]"
+          value={lead.status}
+          disabled={update.isPending}
+          onChange={(event) => update.mutate(event.target.value as LeadStatus)}
+        >
+          {lead.status === "sent" ? <option value="sent">New</option> : null}
+          {nextStatuses.map((status) => (
+            <option key={status} value={status}>
+              {leadStatusLabels[status]}
+            </option>
+          ))}
+        </Select>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-cream p-3 text-[13px]">
+        <div>
+          <p className="text-subtle">Job</p>
+          <p className="font-medium text-ink">{answer(q.installation_type)}</p>
+        </div>
+        <div>
+          <p className="text-subtle">Timing</p>
+          <p className="font-medium text-ink">{answer(q.timing)}</p>
+        </div>
+      </div>
+
+      {progress ? (
+        <ProgressBar
+          className="mt-4"
+          value={progress.quotes_sent}
+          max={progress.installers_matched}
+          label="installers have quoted"
+        />
+      ) : null}
+
+      <details className="group mt-4 text-[13px]">
+        <summary className="cursor-pointer list-none font-medium text-primary [&::-webkit-details-marker]:hidden">
+          <span className="group-open:hidden">Show all details</span>
+          <span className="hidden group-open:inline">Hide details</span>
+        </summary>
+        <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2">
+          {answers.map(([label, value]) => (
+            <div key={label}>
+              <dt className="text-subtle">{label}</dt>
+              <dd className="text-ink">{value}</dd>
+            </div>
+          ))}
+        </dl>
+        {q.notes ? (
+          <p className="mt-3 rounded-lg bg-surface px-3 py-2 whitespace-pre-line text-ink">
+            {q.notes}
+          </p>
+        ) : null}
+        {q.email ? (
+          <div className="mt-3 flex flex-wrap gap-4">
+            <a
+              href={`mailto:${q.email}`}
+              className="flex items-center gap-1.5 text-primary hover:underline"
+            >
+              <Mail aria-hidden className="size-4" />
+              {q.email}
+            </a>
+            {q.phone ? (
+              <a
+                href={`tel:${q.phone.replace(/\s+/g, "")}`}
+                className="flex items-center gap-1.5 text-primary hover:underline"
+              >
+                <Phone aria-hidden className="size-4" />
+                {q.phone}
+              </a>
+            ) : null}
+          </div>
+        ) : (
+          <p className="mt-3 text-xs text-subtle">
+            Contact details are shared on the Pro and Premium plans.
+          </p>
+        )}
+      </details>
+
+      {canReply ? (
+        <div className="mt-auto flex flex-wrap gap-2 pt-5">
+          <Button
+            loading={opening}
+            onClick={onQuote}
+            icon={<FileCheck2 aria-hidden className="size-4" />}
           >
-            {lead.status === "sent" ? <option value="sent">New</option> : null}
-            {nextStatuses.map((status) => (
-              <option key={status} value={status}>
-                {leadStatusLabels[status]}
-              </option>
-            ))}
-          </Select>
-          {canReply ? (
+            {quoted ? "Send another quote" : "Submit quote"}
+          </Button>
+          {progress?.conversation_id ? (
             <Button
-              size="sm"
-              loading={start.isPending}
-              onClick={() => start.mutate({ lead_id: lead.id })}
+              variant="outline"
+              onClick={() => navigate(`/messages/${progress.conversation_id}`)}
               icon={<MessageSquare aria-hidden className="size-4" />}
             >
-              Message &amp; quote
+              Open conversation
             </Button>
           ) : null}
         </div>
-      </div>
-      <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-[13px] sm:grid-cols-3 lg:grid-cols-4">
-        {answers.map(([label, value]) => (
-          <div key={label}>
-            <dt className="text-subtle">{label}</dt>
-            <dd className="text-ink">{value}</dd>
-          </div>
-        ))}
-      </dl>
-      {q.notes ? (
-        <p className="mt-3 rounded-lg bg-surface px-3 py-2 text-[13px] whitespace-pre-line text-ink">
-          {q.notes}
-        </p>
       ) : null}
-      {q.email ? (
-        <div className="mt-3 flex flex-wrap gap-4 text-[13px]">
-          <a
-            href={`mailto:${q.email}`}
-            className="flex items-center gap-1.5 text-primary hover:underline"
-          >
-            <Mail aria-hidden className="size-4" />
-            {q.email}
-          </a>
-          {q.phone ? (
-            <a
-              href={`tel:${q.phone.replace(/\s+/g, "")}`}
-              className="flex items-center gap-1.5 text-primary hover:underline"
-            >
-              <Phone aria-hidden className="size-4" />
-              {q.phone}
-            </a>
-          ) : null}
-        </div>
-      ) : (
-        <p className="mt-3 text-xs text-subtle">
-          Contact details are shared on the Pro and Premium plans.
-        </p>
-      )}
-    </li>
+    </article>
   );
 }
 

@@ -1,6 +1,20 @@
 /** API response and request shapes (mirrors backend/app/schemas). */
 
 export type Role = "admin" | "installer";
+export type StaffRole = "owner" | "manager" | "editor" | "support";
+/** Back-office areas a staff role may use (see the API's `core/permissions.py`). */
+export type Module =
+  | "overview"
+  | "leads"
+  | "messages"
+  | "installers"
+  | "locations"
+  | "content"
+  | "blog"
+  | "reviews"
+  | "inbox"
+  | "settings"
+  | "team";
 export type Plan = "free" | "pro" | "premium";
 export type InstallerStatus = "pending" | "approved" | "rejected" | "suspended";
 export type InstallerSource = "registered" | "imported";
@@ -63,6 +77,11 @@ export interface Me {
     plan: Plan;
     subscription_status: SubscriptionStatus;
   } | null;
+  full_name: string | null;
+  /** Team members only. */
+  staff_role: StaffRole | null;
+  /** The back-office modules this member may use (empty for installers). */
+  permissions: Module[];
 }
 
 export interface AccessSession {
@@ -153,10 +172,19 @@ export interface InstallerSummary {
   review_count: number;
 }
 
+export interface LeadProgress {
+  installers_matched: number;
+  quotes_sent: number;
+  distance_miles: number | null;
+  conversation_id: string | null;
+  my_quote_status: OfferStatus | null;
+}
+
 export interface Lead {
   id: string;
   status: LeadStatus;
   created_at: string;
+  progress?: LeadProgress | null;
   quote: {
     reference: string;
     postcode: string;
@@ -265,32 +293,59 @@ export interface CountByKey {
   count: number;
 }
 
+export interface Kpi {
+  value: number;
+  /** Percent change against the previous period; null when nothing to compare. */
+  change: number | null;
+  hint: string;
+}
+
+export type LeadStage = "open" | "awaiting" | "closed";
+
+export interface RecentLead {
+  id: string;
+  reference: string;
+  first_name: string;
+  installation_type: string;
+  postcode: string;
+  district: string | null;
+  created_at: string;
+  installers_matched: number;
+  quotes_sent: number;
+  max_installers: number;
+  stage: LeadStage;
+}
+
 export interface AdminOverview {
   period_days: number;
-  installers_total: number;
-  installers_by_status: CountByKey[];
-  installers_by_plan: CountByKey[];
-  installers_by_source: CountByKey[];
-  installers_claimed: number;
+  leads: Kpi;
+  active_installers: Kpi;
+  quotes_sent: Kpi;
+  match_rate: Kpi;
+  monthly: { month: string; leads: number; quotes: number }[];
+  leads_by_area: CountByKey[];
+  recent_leads: RecentLead[];
+  held_leads: number;
+  unmatched_leads: number;
   installers_pending: number;
-  quote_requests_total: number;
-  quote_requests_recent: number;
-  quote_requests_by_status: CountByKey[];
-  leads_total: number;
-  enquiries_total: number;
-  enquiries_recent: number;
-  enquiries_for_team: number;
-  conversations_total: number;
-  offers_by_status: CountByKey[];
-  accepted_quote_value: string;
   reviews_pending: number;
-  reviews_published: number;
+  enquiries_for_team: number;
   contact_messages_recent: number;
-  blog_published: number;
-  blog_drafts: number;
-  locations_total: number;
-  quote_requests_daily: { day: string; count: number }[];
-  enquiries_daily: { day: string; count: number }[];
+}
+
+export interface NavCounts {
+  leads: number | null;
+  installers: number | null;
+  reviews: number | null;
+  inbox: number | null;
+}
+
+export interface SearchHit {
+  kind: "installer" | "lead" | "location" | "conversation";
+  id: string;
+  title: string;
+  subtitle: string;
+  href: string;
 }
 
 export interface AdminInstaller {
@@ -317,6 +372,9 @@ export interface AdminInstaller {
   accreditations: Accreditation[];
   created_at: string;
   approved_at: string | null;
+  description: string | null;
+  services: string[];
+  coverage_radius_miles: number;
 }
 
 export interface AdminInstallerUpdate {
@@ -324,6 +382,40 @@ export interface AdminInstallerUpdate {
   plan?: Plan;
   is_featured?: boolean;
   contact_email?: string | null;
+  business_name?: string;
+  contact_name?: string | null;
+  phone?: string;
+  description?: string | null;
+  base_postcode?: string;
+  coverage_radius_miles?: number;
+}
+
+export interface AdminInstallerCreate {
+  business_name: string;
+  contact_name?: string | null;
+  contact_email: string;
+  phone: string;
+  description?: string | null;
+  accreditations: AccreditationScheme[];
+  services: ServiceKey[];
+  base_postcode: string;
+  coverage_radius_miles: number;
+  status: InstallerStatus;
+  plan: Plan;
+}
+
+export interface ImportRow {
+  row: number;
+  business_name: string | null;
+  message: string;
+}
+
+export interface ImportReport {
+  dry_run: boolean;
+  rows: number;
+  created: number;
+  skipped: ImportRow[];
+  errors: ImportRow[];
 }
 
 export interface AdminQuote {
@@ -347,6 +439,32 @@ export interface AdminQuote {
   phone: string | null;
   target_installer_id: string | null;
   created_at: string;
+  stage: LeadStage;
+  installers_matched: number;
+  quotes_sent: number;
+  /** The most installers a request goes to (Settings). */
+  max_installers: number;
+}
+
+export interface StageCounts {
+  all: number;
+  open: number;
+  awaiting: number;
+  closed: number;
+  held: number;
+}
+
+export interface QuoteCandidate {
+  id: string;
+  slug: string;
+  business_name: string;
+  town: string;
+  plan: Plan;
+  rating_avg: number | null;
+  review_count: number;
+  distance_miles: number | null;
+  covers_address: boolean;
+  already_matched: boolean;
 }
 
 export interface AdminQuoteMatch {
@@ -404,12 +522,21 @@ export interface AdminLocation {
   image_credit: string | null;
   seo_title: string | null;
   seo_description: string | null;
+  h1_heading: string | null;
+  is_published: boolean;
+  created_at: string | null;
+  updated_at: string | null;
   installer_count: number;
 }
 
 export type AdminLocationUpdate = Partial<
   Pick<
     AdminLocation,
+    | "name"
+    | "region"
+    | "slug"
+    | "is_published"
+    | "h1_heading"
     | "intro"
     | "image_url"
     | "image_alt"
@@ -418,6 +545,14 @@ export type AdminLocationUpdate = Partial<
     | "seo_description"
   >
 >;
+
+export interface AdminLocationCreate {
+  name: string;
+  postcode: string;
+  region?: string | null;
+  slug?: string | null;
+  is_published: boolean;
+}
 
 export interface AdminBlogPost {
   id: string;
@@ -456,20 +591,130 @@ export interface BlogPostInput {
   published_at: string | null;
 }
 
+// ---- Team, roles and settings ------------------------------------------------
+
 export interface RoleMatrix {
-  roles: { role: Role; label: string; description: string }[];
-  permissions: { key: string; area: string; label: string; roles: Role[] }[];
+  roles: {
+    role: StaffRole;
+    label: string;
+    description: string;
+    editable: boolean;
+  }[];
+  modules: { key: Module; label: string; description: string }[];
+  access: Record<StaffRole, Module[]>;
 }
 
-export interface PlatformInfo {
+export interface TeamMember {
+  id: string;
+  email: string;
+  full_name: string | null;
+  staff_role: StaffRole;
+  is_active: boolean;
+  joined: boolean;
+  last_login_at: string | null;
+  created_at: string;
+  is_you: boolean;
+}
+
+export interface InvitePreview {
+  email: string;
+  full_name: string | null;
+  staff_role: StaffRole;
+}
+
+export interface PlatformSettings {
+  lead_matching: { automatic: boolean; max_installers: number };
+  notifications: { email_alerts: boolean; sms_alerts: boolean };
+  organisation: { platform_name: string; support_email: string };
+}
+
+export interface PlatformStatus {
   environment: string;
   frontend_url: string;
   dashboard_url: string;
-  support_email: string;
   email_configured: boolean;
   image_uploads_configured: boolean;
   payments_configured: boolean;
-  max_quote_matches: number;
+  sms_configured: boolean;
   showcase_enabled: boolean;
-  admins: string[];
+}
+
+export interface AdminSettings {
+  settings: PlatformSettings;
+  status: PlatformStatus;
+}
+
+// ---- Website content -----------------------------------------------------------
+
+export type FieldType =
+  | "text"
+  | "textarea"
+  | "markdown"
+  | "url"
+  | "image"
+  | "email"
+  | "list";
+
+export interface FieldSchema {
+  key: string;
+  label: string;
+  type: FieldType;
+  help?: string;
+  max_length?: number;
+  rows?: number;
+  item_label?: string;
+  required: boolean;
+  /** Lists only. */
+  fields?: FieldSchema[];
+  min_items?: number;
+  max_items?: number | null;
+  fixed?: boolean;
+}
+
+export interface SectionSchema {
+  key: string;
+  label: string;
+  help?: string;
+  fields: FieldSchema[];
+}
+
+export interface DocumentSchema {
+  key: string;
+  label: string;
+  group: string;
+  description: string;
+  path: string | null;
+  sections: SectionSchema[];
+}
+
+export type ContentValue = string | Record<string, string>[];
+export type ContentData = Record<string, Record<string, ContentValue>>;
+
+export interface ContentSummary {
+  key: string;
+  label: string;
+  group: string;
+  description: string;
+  path: string | null;
+  customised: boolean;
+  updated_at: string | null;
+  updated_by: string | null;
+  revision_count: number;
+}
+
+export interface ContentDocument {
+  schema: DocumentSchema;
+  defaults: ContentData;
+  content: ContentData;
+  customised: boolean;
+  updated_at: string | null;
+  updated_by: string | null;
+  tokens: Record<string, string>;
+}
+
+export interface ContentRevision {
+  id: string;
+  action: "saved" | "reset" | "restored";
+  created_at: string;
+  author: string | null;
 }
