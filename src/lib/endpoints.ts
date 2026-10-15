@@ -68,6 +68,9 @@ export const authApi = {
   login: (email: string, password: string) =>
     http.post<AccessSession>("/auth/session", { email, password }),
   logout: () => http.delete("/auth/session"),
+  /** Open the Dashboard with the one-time code from the website sign-in. */
+  handoff: (code: string) =>
+    http.post<AccessSession>("/auth/session/handoff", { token: code }),
   changePassword: (current_password: string, new_password: string) =>
     http.post<AccessSession>("/auth/change-password", {
       current_password,

@@ -18,6 +18,7 @@ import type { Me, Module } from "@/lib/types";
 import { AcceptInvitePage } from "@/pages/accept-invite";
 import { LoginPage } from "@/pages/login";
 import { NotFoundPage } from "@/pages/not-found";
+import { SsoPage } from "@/pages/sso";
 
 /*
  * Installers and the PickASparky team share one Dashboard address. Every page
@@ -175,6 +176,7 @@ function page(path: string, element: ReactNode): RouteObject {
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/accept-invite", element: <AcceptInvitePage /> },
+  { path: "/sso", element: <SsoPage /> },
   {
     element: <RequireAuth />,
     children: [
