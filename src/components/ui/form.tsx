@@ -1,4 +1,5 @@
-import type { ComponentProps, ReactNode } from "react";
+import { Eye, EyeOff } from "lucide-react";
+import { type ComponentProps, type ReactNode, useState } from "react";
 import { cn } from "@/lib/utils";
 
 const control =
@@ -50,6 +51,36 @@ export function Field({
 
 export function Input({ className, ...props }: ComponentProps<"input">) {
   return <input className={cn(control, "h-10", className)} {...props} />;
+}
+
+/** A password field with a button that shows or hides what was typed. */
+export function PasswordInput({
+  className,
+  ...props
+}: Omit<ComponentProps<"input">, "type">) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="relative">
+      <input
+        {...props}
+        type={visible ? "text" : "password"}
+        className={cn(control, "h-10 pr-11", className)}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((value) => !value)}
+        aria-label={visible ? "Hide password" : "Show password"}
+        aria-pressed={visible}
+        className="absolute top-1/2 right-1.5 grid size-8 -translate-y-1/2 cursor-pointer place-items-center rounded-md text-subtle transition-colors hover:bg-ink/5 hover:text-ink focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
+      >
+        {visible ? (
+          <EyeOff aria-hidden className="size-[18px]" />
+        ) : (
+          <Eye aria-hidden className="size-[18px]" />
+        )}
+      </button>
+    </div>
+  );
 }
 
 export function Textarea({ className, ...props }: ComponentProps<"textarea">) {

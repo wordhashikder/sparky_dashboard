@@ -175,6 +175,7 @@ export interface InstallerSummary {
 export interface LeadProgress {
   installers_matched: number;
   quotes_sent: number;
+  slots_total: number;
   distance_miles: number | null;
   conversation_id: string | null;
   my_quote_status: OfferStatus | null;
@@ -375,6 +376,13 @@ export interface AdminInstaller {
   description: string | null;
   services: string[];
   coverage_radius_miles: number;
+  tagline: string | null;
+  website_url: string | null;
+  company_number: string | null;
+  years_experience: number | null;
+  areas_covered: string[];
+  logo_url: string | null;
+  photos: Photo[];
 }
 
 export interface AdminInstallerUpdate {
@@ -388,6 +396,16 @@ export interface AdminInstallerUpdate {
   description?: string | null;
   base_postcode?: string;
   coverage_radius_miles?: number;
+  tagline?: string | null;
+  website_url?: string | null;
+  company_number?: string | null;
+  years_experience?: number | null;
+  services?: ServiceKey[];
+  areas_covered?: string[];
+  accreditations?: {
+    scheme: AccreditationScheme;
+    registration_number?: string | null;
+  }[];
 }
 
 export interface AdminInstallerCreate {
@@ -499,6 +517,28 @@ export interface AdminReview {
   published_at: string | null;
 }
 
+export interface AdminReviewInput {
+  installer_id: string;
+  rating: number;
+  title: string;
+  body: string;
+  author_name: string;
+  author_location?: string | null;
+  status?: ReviewStatus;
+}
+
+export interface AdminCustomer {
+  id: string;
+  email: string;
+  first_name: string;
+  phone: string | null;
+  requests: number;
+  conversations: number;
+  quotes_received: number;
+  last_login_at: string | null;
+  created_at: string;
+}
+
 export interface AdminContactMessage {
   id: string;
   name: string;
@@ -523,6 +563,8 @@ export interface AdminLocation {
   seo_title: string | null;
   seo_description: string | null;
   h1_heading: string | null;
+  extra_title: string | null;
+  extra_body: string | null;
   is_published: boolean;
   created_at: string | null;
   updated_at: string | null;
@@ -537,6 +579,8 @@ export type AdminLocationUpdate = Partial<
     | "slug"
     | "is_published"
     | "h1_heading"
+    | "extra_title"
+    | "extra_body"
     | "intro"
     | "image_url"
     | "image_alt"

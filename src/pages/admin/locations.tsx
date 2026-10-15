@@ -391,6 +391,7 @@ function LocationDrawer({
           key={location.slug}
           location={location}
           onRenamed={onRenamed}
+          onDeleted={onClose}
         />
       ) : null}
     </Drawer>
@@ -400,9 +401,11 @@ function LocationDrawer({
 function LocationForm({
   location,
   onRenamed,
+  onDeleted,
 }: {
   location: AdminLocation;
   onRenamed: (slug: string) => void;
+  onDeleted: () => void;
 }) {
   const id = useId();
   const queryClient = useQueryClient();
@@ -414,6 +417,7 @@ function LocationForm({
     location.seo_description ?? "",
   );
   const [intro, setIntro] = useState(location.intro ?? "");
+  const [extraBody, setExtraBody] = useState(location.extra_body ?? "");
 
   const merge = (updated: AdminLocation) =>
     queryClient.setQueryData<AdminLocation[]>(KEY, (list) =>
@@ -473,6 +477,15 @@ function LocationForm({
     },
     onError,
   });
+  const remove = useMutation({
+    mutationFn: () => adminApi.deleteLocation(location.slug),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: KEY });
+      toast.success(`${location.name} deleted.`);
+      onDeleted();
+    },
+    onError,
+  });
   const removeImage = useMutation({
     mutationFn: () => adminApi.removeLocationImage(location.slug),
     onSuccess: (updated) => {
@@ -493,6 +506,8 @@ function LocationForm({
       ...(slug && slug !== location.slug ? { slug } : {}),
       h1_heading: value("h1_heading"),
       intro: value("intro"),
+      extra_title: value("extra_title"),
+      extra_body: value("extra_body"),
       seo_title: value("seo_title"),
       seo_description: value("seo_description"),
       image_url: value("image_url"),
@@ -678,6 +693,47 @@ function LocationForm({
       </section>
 
       <section className="space-y-4">
+        <h3 className="text-[13px] font-semibold">
+          Closing section (optional)
+        </h3>
+        <p className="text-[13px]">
+          A section for this town only, shown below the reviews and above “Find
+          trusted installers in your area”. Leave both fields empty to use the
+          standard one from Website content › Location pages (hidden unless it
+          has text).
+        </p>
+        <Field
+          label="Title"
+          htmlFor={`${id}-extra-title`}
+          error={errors.extra_title}
+        >
+          <Input
+            id={`${id}-extra-title`}
+            name="extra_title"
+            maxLength={120}
+            defaultValue={location.extra_title ?? ""}
+          />
+        </Field>
+        <Field
+          label="Text"
+          htmlFor={`${id}-extra-body`}
+          error={errors.extra_body}
+          aside={`${extraBody.length.toLocaleString("en-GB")}/20,000`}
+          hint="Markdown: ## headings, **bold**, - bullet lists and [links](/page/)."
+        >
+          <Textarea
+            id={`${id}-extra-body`}
+            name="extra_body"
+            rows={8}
+            maxLength={20000}
+            value={extraBody}
+            onChange={(event) => setExtraBody(event.target.value)}
+            className="font-mono text-[13px]"
+          />
+        </Field>
+      </section>
+
+      <section className="space-y-4">
         <h3 className="text-[13px] font-semibold">Photo</h3>
         <div className="flex flex-wrap items-center gap-4">
           {location.image_url ? (
@@ -768,6 +824,35 @@ function LocationForm({
             />
           </Field>
         </div>
+      </section>
+
+      <section className="space-y-2 rounded-xl border border-red-200 bg-red-50/50 p-4">
+        <h3 className="text-[13px] font-semibold text-red-700">
+          Delete this page
+        </h3>
+        <p className="text-[13px]">
+          {location.is_published
+            ? "Unpublish the page first. A live page can't be deleted."
+            : location.installer_count > 0
+              ? "Installers are placed in this town. Move or delete them first, or keep the page as a draft."
+              : "Removes the page for good."}
+        </p>
+        <Button
+          variant="danger"
+          size="sm"
+          disabled={location.is_published || location.installer_count > 0}
+          loading={remove.isPending}
+          onClick={() => {
+            if (
+              window.confirm(
+                `Delete the ${location.name} page? This cannot be undone.`,
+              )
+            )
+              remove.mutate();
+          }}
+        >
+          Delete page
+        </Button>
       </section>
     </form>
   );

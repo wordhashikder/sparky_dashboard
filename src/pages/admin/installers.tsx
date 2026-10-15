@@ -4,13 +4,22 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { ExternalLink, FileUp, Mail, Plus, Search, Send } from "lucide-react";
+import {
+  ExternalLink,
+  FileUp,
+  Mail,
+  Pencil,
+  Plus,
+  Search,
+  Send,
+} from "lucide-react";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { useSearchParams } from "react-router";
 import {
   AddInstallerDrawer,
   DetailsForm,
   ImportDrawer,
+  MediaSection,
 } from "@/components/installers/installer-forms";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,6 +52,8 @@ import type {
 } from "@/lib/types";
 import { useDebounced } from "@/lib/use-debounced";
 
+type DrawerTab = "overview" | "edit";
+
 const STATUSES = Object.keys(installerStatusLabels) as InstallerStatus[];
 const PLANS = Object.keys(planLabels) as Plan[];
 
@@ -59,10 +70,13 @@ export default function InstallersPage() {
     claimed: "",
   });
   const openId = params.get("open");
-  const setOpenId = (id: string | null) => {
+  const tab: DrawerTab = params.get("tab") === "edit" ? "edit" : "overview";
+  const setOpenId = (id: string | null, nextTab: DrawerTab = "overview") => {
     const copy = new URLSearchParams(params);
     if (id) copy.set("open", id);
     else copy.delete("open");
+    if (id && nextTab === "edit") copy.set("tab", "edit");
+    else copy.delete("tab");
     setParams(copy, { replace: true });
   };
   const q = useDebounced(search);
@@ -185,6 +199,9 @@ export default function InstallersPage() {
                 <Th>Status</Th>
                 <Th>Account</Th>
                 <Th>Rating</Th>
+                <Th>
+                  <span className="sr-only">Actions</span>
+                </Th>
               </tr>
             </thead>
             <tbody>
@@ -231,6 +248,19 @@ export default function InstallersPage() {
                       ? `${installer.rating_avg.toFixed(1)} (${installer.review_count})`
                       : "—"}
                   </Td>
+                  <Td>
+                    <div className="flex justify-end gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        icon={<Pencil aria-hidden className="size-3.5" />}
+                        aria-label={`Edit ${installer.business_name}`}
+                        onClick={() => setOpenId(installer.id, "edit")}
+                      >
+                        Edit
+                      </Button>
+                    </div>
+                  </Td>
                 </Tr>
               ))}
             </tbody>
@@ -246,13 +276,18 @@ export default function InstallersPage() {
           />
         ) : null}
       </Card>
-      <InstallerDrawer id={openId} onClose={() => setOpenId(null)} />
+      <InstallerDrawer
+        id={openId}
+        tab={tab}
+        onTab={(next) => openId && setOpenId(openId, next)}
+        onClose={() => setOpenId(null)}
+      />
       <AddInstallerDrawer
         open={adding}
         onClose={() => setAdding(false)}
         onCreated={(installer) => {
           setAdding(false);
-          setOpenId(installer.id);
+          setOpenId(installer.id, "edit");
         }}
       />
       <ImportDrawer open={importing} onClose={() => setImporting(false)} />
@@ -295,9 +330,13 @@ function FilterSelect({
 
 function InstallerDrawer({
   id,
+  tab,
+  onTab,
   onClose,
 }: {
   id: string | null;
+  tab: DrawerTab;
+  onTab: (tab: DrawerTab) => void;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -334,6 +373,17 @@ function InstallerDrawer({
     onSuccess: onSaved,
     onError,
   });
+  const remove = useMutation({
+    mutationFn: () => adminApi.deleteInstaller(id ?? ""),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin", "installers"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin", "overview"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin", "reviews"] });
+      toast.success("Installer deleted.");
+      onClose();
+    },
+    onError,
+  });
   const invite = useMutation({
     mutationFn: () => adminApi.claimInvite(id ?? ""),
     onSuccess: (result) => toast.success(result.message),
@@ -359,6 +409,15 @@ function InstallerDrawer({
         <ErrorState error={query.error} />
       ) : installer ? (
         <div className="space-y-6">
+          <Tabs
+            label="Installer"
+            value={tab}
+            onChange={onTab}
+            tabs={[
+              { value: "overview", label: "Overview" },
+              { value: "edit", label: "Edit profile" },
+            ]}
+          />
           <div className="flex flex-wrap gap-2">
             <a
               href={siteLinks.installer(installer.slug)}
@@ -378,152 +437,192 @@ function InstallerDrawer({
             <Badge tone="mint">{sourceLabels[installer.source]}</Badge>
           </div>
 
-          <dl className="grid grid-cols-[130px_1fr] gap-x-4 gap-y-2 text-sm">
-            <Item label="Contact">{installer.contact_name || "—"}</Item>
-            <Item label="Email">{installer.email ?? "—"}</Item>
-            <Item label="Phone">{installer.phone || "—"}</Item>
-            <Item label="Address">
-              {installer.address ?? installer.base_postcode}
-            </Item>
-            <Item label="Subscription">
-              {subscriptionLabels[installer.subscription_status]}
-            </Item>
-            {installer.requested_plan ? (
-              <Item label="Asked for">
-                {planLabels[installer.requested_plan]}
-              </Item>
-            ) : null}
-            <Item label="Claimed">{formatDate(installer.claimed_at)}</Item>
-            <Item label="Approved">{formatDate(installer.approved_at)}</Item>
-          </dl>
+          {tab === "edit" ? (
+            <>
+              <section className="space-y-3">
+                <h3 className="text-[13px] font-semibold">Business details</h3>
+                <DetailsForm
+                  key={installer.id}
+                  installer={installer}
+                  saving={update.isPending}
+                  errors={errors}
+                  onSave={(body) => update.mutate(body)}
+                />
+              </section>
 
-          <section className="space-y-3">
-            <h3 className="text-[13px] font-semibold">Business details</h3>
-            <DetailsForm
-              key={installer.id}
-              installer={installer}
-              saving={update.isPending}
-              errors={errors}
-              onSave={(body) => update.mutate(body)}
-            />
-          </section>
+              <MediaSection installer={installer} onChange={onSaved} />
+            </>
+          ) : (
+            <>
+              <dl className="grid grid-cols-[130px_1fr] gap-x-4 gap-y-2 text-sm">
+                <Item label="Contact">{installer.contact_name || "—"}</Item>
+                <Item label="Email">{installer.email ?? "—"}</Item>
+                <Item label="Phone">{installer.phone || "—"}</Item>
+                <Item label="Address">
+                  {installer.address ?? installer.base_postcode}
+                </Item>
+                <Item label="Subscription">
+                  {subscriptionLabels[installer.subscription_status]}
+                </Item>
+                {installer.requested_plan ? (
+                  <Item label="Asked for">
+                    {planLabels[installer.requested_plan]}
+                  </Item>
+                ) : null}
+                <Item label="Claimed">{formatDate(installer.claimed_at)}</Item>
+                <Item label="Approved">
+                  {formatDate(installer.approved_at)}
+                </Item>
+              </dl>
 
-          <section className="space-y-3">
-            <h3 className="text-[13px] font-semibold">Listing</h3>
-            {installer.status === "pending" ? (
-              <div className="flex gap-2">
-                <Button
-                  loading={update.isPending}
-                  onClick={() => update.mutate({ status: "approved" })}
-                >
-                  Approve
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    if (window.confirm("Reject this application?"))
-                      update.mutate({ status: "rejected" });
-                  }}
-                >
-                  Reject
-                </Button>
-              </div>
-            ) : null}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Status" htmlFor="admin-status">
-                <Select
-                  id="admin-status"
-                  value={installer.status}
-                  disabled={update.isPending}
-                  onChange={(event) =>
-                    update.mutate({
-                      status: event.target.value as InstallerStatus,
-                    })
-                  }
-                >
-                  {STATUSES.map((key) => (
-                    <option key={key} value={key}>
-                      {installerStatusLabels[key]}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field
-                label="Plan"
-                htmlFor="admin-plan"
-                hint="Normally set by Stripe billing."
-              >
-                <Select
-                  id="admin-plan"
-                  value={installer.plan}
-                  disabled={update.isPending}
-                  onChange={(event) =>
-                    update.mutate({ plan: event.target.value as Plan })
-                  }
-                >
-                  {PLANS.map((key) => (
-                    <option key={key} value={key}>
-                      {planLabels[key]}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            </div>
-            <Checkbox
-              checked={installer.is_featured}
-              disabled={update.isPending}
-              onChange={(event) =>
-                update.mutate({ is_featured: event.target.checked })
-              }
-              label="Featured (shown first in its plan)"
-            />
-          </section>
-
-          {!installer.is_claimed ? (
-            <ClaimSection
-              installer={installer}
-              saving={update.isPending}
-              onSaveEmail={(email) => update.mutate({ contact_email: email })}
-              onInvite={() => invite.mutate()}
-              inviting={invite.isPending}
-            />
-          ) : null}
-
-          <section>
-            <h3 className="mb-2 text-[13px] font-semibold">Accreditations</h3>
-            {installer.accreditations.length === 0 ? (
-              <p className="text-sm">None listed.</p>
-            ) : (
-              <ul className="divide-y divide-line rounded-xl border border-line">
-                {installer.accreditations.map((item) => (
-                  <li
-                    key={item.scheme}
-                    className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm"
-                  >
-                    <span className="text-ink">
-                      {accreditationLabels[item.scheme]}
-                      {item.registration_number ? (
-                        <span className="ml-2 text-xs text-subtle">
-                          {item.registration_number}
-                        </span>
-                      ) : null}
-                    </span>
-                    <Checkbox
-                      checked={item.verified}
-                      disabled={verify.isPending}
+              <section className="space-y-3">
+                <h3 className="text-[13px] font-semibold">Listing</h3>
+                {installer.status === "pending" ? (
+                  <div className="flex gap-2">
+                    <Button
+                      loading={update.isPending}
+                      onClick={() => update.mutate({ status: "approved" })}
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        if (window.confirm("Reject this application?"))
+                          update.mutate({ status: "rejected" });
+                      }}
+                    >
+                      Reject
+                    </Button>
+                  </div>
+                ) : null}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Status" htmlFor="admin-status">
+                    <Select
+                      id="admin-status"
+                      value={installer.status}
+                      disabled={update.isPending}
                       onChange={(event) =>
-                        verify.mutate({
-                          scheme: item.scheme,
-                          verified: event.target.checked,
+                        update.mutate({
+                          status: event.target.value as InstallerStatus,
                         })
                       }
-                      label="Verified"
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+                    >
+                      {STATUSES.map((key) => (
+                        <option key={key} value={key}>
+                          {installerStatusLabels[key]}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field
+                    label="Plan"
+                    htmlFor="admin-plan"
+                    hint="Normally set by Stripe billing."
+                  >
+                    <Select
+                      id="admin-plan"
+                      value={installer.plan}
+                      disabled={update.isPending}
+                      onChange={(event) =>
+                        update.mutate({ plan: event.target.value as Plan })
+                      }
+                    >
+                      {PLANS.map((key) => (
+                        <option key={key} value={key}>
+                          {planLabels[key]}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                </div>
+                <Checkbox
+                  checked={installer.is_featured}
+                  disabled={update.isPending}
+                  onChange={(event) =>
+                    update.mutate({ is_featured: event.target.checked })
+                  }
+                  label="Featured (shown first in its plan)"
+                />
+              </section>
+
+              {!installer.is_claimed ? (
+                <ClaimSection
+                  installer={installer}
+                  saving={update.isPending}
+                  onSaveEmail={(email) =>
+                    update.mutate({ contact_email: email })
+                  }
+                  onInvite={() => invite.mutate()}
+                  inviting={invite.isPending}
+                />
+              ) : null}
+
+              <section>
+                <h3 className="mb-2 text-[13px] font-semibold">
+                  Accreditations
+                </h3>
+                {installer.accreditations.length === 0 ? (
+                  <p className="text-sm">None listed.</p>
+                ) : (
+                  <ul className="divide-y divide-line rounded-xl border border-line">
+                    {installer.accreditations.map((item) => (
+                      <li
+                        key={item.scheme}
+                        className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm"
+                      >
+                        <span className="text-ink">
+                          {accreditationLabels[item.scheme]}
+                          {item.registration_number ? (
+                            <span className="ml-2 text-xs text-subtle">
+                              {item.registration_number}
+                            </span>
+                          ) : null}
+                        </span>
+                        <Checkbox
+                          checked={item.verified}
+                          disabled={verify.isPending}
+                          onChange={(event) =>
+                            verify.mutate({
+                              scheme: item.scheme,
+                              verified: event.target.checked,
+                            })
+                          }
+                          label="Verified"
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <section className="space-y-2 rounded-xl border border-red-200 bg-red-50/50 p-4">
+                <h3 className="text-[13px] font-semibold text-red-700">
+                  Delete installer
+                </h3>
+                <p className="text-[13px]">
+                  Removes the listing, its login, reviews, enquiries and
+                  conversations for good. To hide it instead, set the status to
+                  Suspended.
+                </p>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  loading={remove.isPending}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Permanently delete ${installer.business_name}? This cannot be undone.`,
+                      )
+                    )
+                      remove.mutate();
+                  }}
+                >
+                  Delete installer
+                </Button>
+              </section>
+            </>
+          )}
         </div>
       ) : null}
     </Drawer>

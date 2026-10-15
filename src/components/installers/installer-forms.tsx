@@ -462,6 +462,23 @@ export function DetailsForm({
       phone: text(form, "phone"),
       description: text(form, "description") || null,
       coverage_radius_miles: Number(form.get("coverage_radius_miles")),
+      tagline: text(form, "tagline") || null,
+      website_url: text(form, "website_url") || null,
+      company_number: text(form, "company_number") || null,
+      years_experience: text(form, "years_experience")
+        ? Number(form.get("years_experience"))
+        : null,
+      areas_covered: text(form, "areas_covered")
+        .split(/[\n,]/)
+        .map((area) => area.trim())
+        .filter(Boolean),
+      services: SERVICES.filter((service) => form.get(`service_${service}`)),
+      accreditations: SCHEMES.filter((scheme) =>
+        form.get(`scheme_${scheme}`),
+      ).map((scheme) => ({
+        scheme,
+        registration_number: text(form, `reg_${scheme}`) || null,
+      })),
     };
     const postcode = text(form, "base_postcode");
     if (postcode && postcode !== installer.base_postcode)
@@ -534,11 +551,271 @@ export function DetailsForm({
           defaultValue={installer.description ?? ""}
         />
       </Field>
+      <Field
+        label="Tagline"
+        htmlFor={`${id}-tagline`}
+        error={errors.tagline}
+        className="sm:col-span-2"
+        hint="One line under the name on cards and the profile (120 characters)."
+      >
+        <Input
+          id={`${id}-tagline`}
+          name="tagline"
+          maxLength={120}
+          defaultValue={installer.tagline ?? ""}
+        />
+      </Field>
+      <Field
+        label="Website"
+        htmlFor={`${id}-website`}
+        error={errors.website_url}
+      >
+        <Input
+          id={`${id}-website`}
+          name="website_url"
+          placeholder="https://"
+          defaultValue={installer.website_url ?? ""}
+        />
+      </Field>
+      <Field
+        label="Company number"
+        htmlFor={`${id}-company`}
+        error={errors.company_number}
+      >
+        <Input
+          id={`${id}-company`}
+          name="company_number"
+          defaultValue={installer.company_number ?? ""}
+        />
+      </Field>
+      <Field
+        label="Years of experience"
+        htmlFor={`${id}-years`}
+        error={errors.years_experience}
+        hint="Only fill in if you know it. Leave empty to show nothing."
+      >
+        <Input
+          id={`${id}-years`}
+          name="years_experience"
+          type="number"
+          min={0}
+          max={80}
+          defaultValue={installer.years_experience ?? ""}
+        />
+      </Field>
+      <Field
+        label="Areas covered"
+        htmlFor={`${id}-areas`}
+        error={errors.areas_covered}
+        hint="Towns, separated by commas or new lines (up to 20)."
+        className="sm:col-span-2"
+      >
+        <Textarea
+          id={`${id}-areas`}
+          name="areas_covered"
+          rows={2}
+          defaultValue={installer.areas_covered.join(", ")}
+        />
+      </Field>
+      <fieldset className="sm:col-span-2">
+        <legend className="mb-1.5 text-[13px] font-semibold text-ink">
+          Services
+        </legend>
+        {errors.services ? (
+          <p role="alert" className="mb-1.5 text-xs text-red-600">
+            {errors.services}
+          </p>
+        ) : null}
+        <div className="grid gap-2 sm:grid-cols-2">
+          {SERVICES.map((service) => (
+            <Checkbox
+              key={service}
+              name={`service_${service}`}
+              defaultChecked={installer.services.includes(service)}
+              label={serviceLabels[service]}
+            />
+          ))}
+        </div>
+      </fieldset>
+      <fieldset className="sm:col-span-2">
+        <legend className="mb-1.5 text-[13px] font-semibold text-ink">
+          Accreditations
+        </legend>
+        {errors.accreditations ? (
+          <p role="alert" className="mb-1.5 text-xs text-red-600">
+            {errors.accreditations}
+          </p>
+        ) : null}
+        <p className="mb-2 text-xs text-subtle">
+          Changing a registration number clears its “Verified” tick below.
+        </p>
+        <div className="grid gap-2">
+          {SCHEMES.map((scheme) => {
+            const current = installer.accreditations.find(
+              (item) => item.scheme === scheme,
+            );
+            return (
+              <div
+                key={scheme}
+                className="flex flex-wrap items-center justify-between gap-2"
+              >
+                <Checkbox
+                  name={`scheme_${scheme}`}
+                  defaultChecked={!!current}
+                  label={accreditationLabels[scheme]}
+                />
+                <Input
+                  name={`reg_${scheme}`}
+                  aria-label={`${accreditationLabels[scheme]} registration number`}
+                  placeholder="Registration number"
+                  maxLength={60}
+                  className="h-8 max-w-48"
+                  defaultValue={current?.registration_number ?? ""}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </fieldset>
       <div className="sm:col-span-2">
         <Button type="submit" variant="outline" loading={saving}>
           Save details
         </Button>
       </div>
     </form>
+  );
+}
+
+/** Logo and gallery photos of a listing, managed by the team. */
+export function MediaSection({
+  installer,
+  onChange,
+}: {
+  installer: AdminInstaller;
+  onChange: (installer: AdminInstaller) => void;
+}) {
+  const toast = useToast();
+  const logoInput = useRef<HTMLInputElement>(null);
+  const photoInput = useRef<HTMLInputElement>(null);
+  const onError = (error: unknown) =>
+    toast.error(
+      error instanceof ApiError ? error.message : "Couldn't update the images.",
+    );
+
+  const uploadLogo = useMutation({
+    mutationFn: (file: File) =>
+      adminApi.uploadInstallerLogo(installer.id, file),
+    onSuccess: onChange,
+    onError,
+  });
+  const removeLogo = useMutation({
+    mutationFn: () => adminApi.removeInstallerLogo(installer.id),
+    onSuccess: onChange,
+    onError,
+  });
+  const addPhoto = useMutation({
+    mutationFn: (file: File) =>
+      adminApi.uploadInstallerPhoto(installer.id, file, ""),
+    onSuccess: onChange,
+    onError,
+  });
+  const removePhoto = useMutation({
+    mutationFn: (photoId: string) =>
+      adminApi.deleteInstallerPhoto(installer.id, photoId),
+    onSuccess: onChange,
+    onError,
+  });
+
+  return (
+    <section className="space-y-4">
+      <h3 className="text-[13px] font-semibold">Logo and photos</h3>
+      <div className="flex flex-wrap items-center gap-3">
+        {installer.logo_url ? (
+          <img
+            src={installer.logo_url}
+            alt=""
+            className="size-14 rounded-xl border border-line object-cover"
+          />
+        ) : (
+          <span className="grid size-14 place-items-center rounded-xl border border-dashed border-line text-xs text-subtle">
+            None
+          </span>
+        )}
+        <input
+          ref={logoInput}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) uploadLogo.mutate(file);
+            event.target.value = "";
+          }}
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          loading={uploadLogo.isPending}
+          onClick={() => logoInput.current?.click()}
+        >
+          {installer.logo_url ? "Replace logo" : "Upload logo"}
+        </Button>
+        {installer.logo_url ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            loading={removeLogo.isPending}
+            onClick={() => removeLogo.mutate()}
+          >
+            Remove
+          </Button>
+        ) : null}
+      </div>
+      <div>
+        <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {installer.photos.map((photo) => (
+            <li key={photo.id} className="group relative">
+              <img
+                src={photo.url}
+                alt={photo.alt ?? ""}
+                className="aspect-[4/3] w-full rounded-lg border border-line object-cover"
+              />
+              <button
+                type="button"
+                aria-label="Delete photo"
+                disabled={removePhoto.isPending}
+                onClick={() => {
+                  if (window.confirm("Delete this photo?"))
+                    removePhoto.mutate(photo.id);
+                }}
+                className="absolute top-1 right-1 cursor-pointer rounded-md bg-ink/80 px-2 py-0.5 text-xs font-semibold text-white opacity-100 sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100"
+              >
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+        <input
+          ref={photoInput}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) addPhoto.mutate(file);
+            event.target.value = "";
+          }}
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          className="mt-3"
+          loading={addPhoto.isPending}
+          onClick={() => photoInput.current?.click()}
+        >
+          Add photo
+        </Button>
+      </div>
+    </section>
   );
 }

@@ -2,7 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { type FormEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { Field, Input } from "@/components/ui/form";
+import { Field, PasswordInput } from "@/components/ui/form";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -76,10 +76,9 @@ export function ChangePasswordCard() {
             htmlFor="pw-current"
             error={errors.current}
           >
-            <Input
+            <PasswordInput
               id="pw-current"
               name="current"
-              type="password"
               autoComplete="current-password"
             />
           </Field>
@@ -89,10 +88,9 @@ export function ChangePasswordCard() {
             error={errors.next}
             hint={POLICY}
           >
-            <Input
+            <PasswordInput
               id="pw-next"
               name="next"
-              type="password"
               autoComplete="new-password"
             />
           </Field>
@@ -101,10 +99,9 @@ export function ChangePasswordCard() {
             htmlFor="pw-confirm"
             error={errors.confirm}
           >
-            <Input
+            <PasswordInput
               id="pw-confirm"
               name="confirm"
-              type="password"
               autoComplete="new-password"
             />
           </Field>

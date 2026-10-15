@@ -61,6 +61,12 @@ function adminNav(counts: NavCounts | undefined): NavGroup[] {
           badge: counts?.leads,
         },
         {
+          to: "/customers",
+          label: "Customers",
+          icon: UserRound,
+          module: "leads",
+        },
+        {
           to: "/messages",
           label: "Messages",
           icon: MessageSquare,

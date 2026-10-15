@@ -3,7 +3,7 @@ import { type FormEvent, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router";
 import { Centered } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Notice } from "@/components/ui/form";
+import { Field, Input, Notice, PasswordInput } from "@/components/ui/form";
 import { PageLoader } from "@/components/ui/states";
 import { ApiError } from "@/lib/api";
 import { homeFor, useAuth } from "@/lib/auth";
@@ -89,10 +89,9 @@ export function LoginPage() {
               />
             </Field>
             <Field label="Password" htmlFor="password">
-              <Input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 autoComplete="current-password"
                 required
               />

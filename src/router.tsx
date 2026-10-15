@@ -44,6 +44,7 @@ const BlogList = lazy(() => import("@/pages/admin/blog-list"));
 const BlogEditor = lazy(() => import("@/pages/admin/blog-editor"));
 const Reviews = lazy(() => import("@/pages/admin/reviews"));
 const Inbox = lazy(() => import("@/pages/admin/inbox"));
+const Customers = lazy(() => import("@/pages/admin/customers"));
 const Team = lazy(() => import("@/pages/admin/team"));
 const SettingsHub = lazy(() => import("@/pages/admin/settings"));
 const PlatformSettings = lazy(() => import("@/pages/admin/platform-settings"));
@@ -231,6 +232,7 @@ export const router = createBrowserRouter([
           page("/blog/new", <ByRole team={BlogEditor} module="blog" />),
           page("/blog/:postId", <ByRole team={BlogEditor} module="blog" />),
           page("/reviews", <ByRole team={Reviews} module="reviews" />),
+          page("/customers", <ByRole team={Customers} module="leads" />),
           page("/inbox", <ByRole team={Inbox} module="inbox" />),
           page("/team", <ByRole team={Team} module="team" />),
           page(

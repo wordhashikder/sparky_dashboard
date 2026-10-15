@@ -22,7 +22,6 @@ import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Notice, Select } from "@/components/ui/form";
-import { ProgressBar } from "@/components/ui/kpi-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
 import { StatCard } from "@/components/ui/stat-card";
@@ -133,9 +132,11 @@ function useStartConversation() {
 function LeadList({ canReply }: { canReply: boolean }) {
   const [page, setPage] = useState(1);
   const toast = useToast();
-  const [quoteFor, setQuoteFor] = useState<{ id: string; name: string } | null>(
-    null,
-  );
+  const [quoteFor, setQuoteFor] = useState<{
+    id: string;
+    name: string;
+    lead: Lead;
+  } | null>(null);
   const query = useQuery({
     queryKey: ["installer", "leads", page],
     queryFn: () => installerApi.leads(page),
@@ -152,11 +153,15 @@ function LeadList({ canReply }: { canReply: boolean }) {
   async function openQuote(lead: Lead) {
     const existing = lead.progress?.conversation_id;
     if (existing) {
-      setQuoteFor({ id: existing, name: lead.quote.first_name });
+      setQuoteFor({ id: existing, name: lead.quote.first_name, lead });
       return;
     }
     const conversation = await start.mutateAsync({ lead_id: lead.id });
-    setQuoteFor({ id: conversation.id, name: conversation.homeowner_name });
+    setQuoteFor({
+      id: conversation.id,
+      name: conversation.homeowner_name,
+      lead,
+    });
   }
 
   if (query.isPending) return <PageLoader />;
@@ -203,6 +208,7 @@ function LeadList({ canReply }: { canReply: boolean }) {
         <QuoteForm
           conversationId={quoteFor.id}
           homeownerName={quoteFor.name}
+          lead={quoteFor.lead}
           open
           onClose={() => setQuoteFor(null)}
         />
@@ -258,7 +264,10 @@ function LeadCard({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-base font-semibold">{q.first_name}</h3>
+            <h3 className="text-lg font-bold tracking-tight">{q.postcode}</h3>
+            {progress?.distance_miles != null ? (
+              <Badge tone="blue">{progress.distance_miles} mi away</Badge>
+            ) : null}
             <Badge tone={statusTone[lead.status]}>
               {leadStatusLabels[lead.status]}
             </Badge>
@@ -271,10 +280,7 @@ function LeadCard({
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle">
             <span className="flex items-center gap-1">
               <MapPin aria-hidden className="size-3.5" />
-              {q.district ?? q.postcode}
-              {progress?.distance_miles != null
-                ? ` · ${progress.distance_miles} mi away`
-                : ""}
+              {q.district ?? "Your service area"} · {q.first_name}
             </span>
             <span className="flex items-center gap-1">
               <Clock aria-hidden className="size-3.5" />
@@ -302,10 +308,16 @@ function LeadCard({
         </Select>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-cream p-3 text-[13px]">
+      <p className="mt-4 inline-flex w-fit items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-forest">
+        <Zap aria-hidden className="size-3.5" />
+        {answer(q.installation_type)}
+      </p>
+      <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl bg-cream p-3 text-[13px]">
         <div>
-          <p className="text-subtle">Job</p>
-          <p className="font-medium text-ink">{answer(q.installation_type)}</p>
+          <p className="text-subtle">Charger location</p>
+          <p className="font-medium text-ink">
+            {answer(q.charger_location, "ChargerLocation")}
+          </p>
         </div>
         <div>
           <p className="text-subtle">Timing</p>
@@ -313,14 +325,7 @@ function LeadCard({
         </div>
       </div>
 
-      {progress ? (
-        <ProgressBar
-          className="mt-4"
-          value={progress.quotes_sent}
-          max={progress.installers_matched}
-          label="installers have quoted"
-        />
-      ) : null}
+      {progress ? <SlotsBar progress={progress} className="mt-4" /> : null}
 
       <details className="group mt-4 text-[13px]">
         <summary className="cursor-pointer list-none font-medium text-primary [&::-webkit-details-marker]:hidden">
@@ -373,7 +378,7 @@ function LeadCard({
             onClick={onQuote}
             icon={<FileCheck2 aria-hidden className="size-4" />}
           >
-            {quoted ? "Send another quote" : "Submit quote"}
+            {quoted ? "Review & Quote again" : "Review & Quote"}
           </Button>
           {progress?.conversation_id ? (
             <Button
@@ -381,12 +386,57 @@ function LeadCard({
               onClick={() => navigate(`/messages/${progress.conversation_id}`)}
               icon={<MessageSquare aria-hidden className="size-4" />}
             >
-              Open conversation
+              Messages
             </Button>
           ) : null}
         </div>
       ) : null}
     </article>
+  );
+}
+
+/** "2 quotes · 3 slots left": how many installers have quoted and how many places remain. */
+export function SlotsBar({
+  progress,
+  className,
+}: {
+  progress: NonNullable<Lead["progress"]>;
+  className?: string;
+}) {
+  const total = Math.max(1, progress.slots_total);
+  const used = Math.min(progress.quotes_sent, total);
+  const left = Math.max(0, total - used);
+  return (
+    <div className={className}>
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <span className="font-medium text-ink">
+          {used} {used === 1 ? "quote" : "quotes"} · {left}{" "}
+          {left === 1 ? "slot" : "slots"} left
+        </span>
+        <span className="text-subtle">
+          {progress.installers_matched} installers have this request
+        </span>
+      </div>
+      <div
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-valuenow={used}
+        aria-label={`${used} of ${total} quote slots used`}
+        className="mt-1.5 flex gap-1"
+      >
+        {Array.from({ length: total }, (_, index) => (
+          <span
+            // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length decoration
+            key={index}
+            className={cn(
+              "h-1.5 flex-1 rounded-full",
+              index < used ? "bg-primary" : "bg-ink/10",
+            )}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 

@@ -4,8 +4,9 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { BadgeCheck, Star } from "lucide-react";
+import { BadgeCheck, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { ReviewDrawer } from "@/components/reviews/review-drawer";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -18,13 +19,26 @@ import { ApiError } from "@/lib/api";
 import { adminApi } from "@/lib/endpoints";
 import { formatDate } from "@/lib/format";
 import { reviewStatusLabels } from "@/lib/labels";
-import type { ReviewStatus } from "@/lib/types";
+import type { AdminReview, ReviewStatus } from "@/lib/types";
 
 export default function ReviewsPage() {
   const [status, setStatus] = useState<ReviewStatus | "">("pending");
   const [page, setPage] = useState(1);
+  const [editing, setEditing] = useState<AdminReview | "new" | null>(null);
   const queryClient = useQueryClient();
   const toast = useToast();
+  const remove = useMutation({
+    mutationFn: (id: string) => adminApi.deleteReview(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin", "reviews"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin", "overview"] });
+      toast.success("Review deleted.");
+    },
+    onError: (error) =>
+      toast.error(
+        error instanceof ApiError ? error.message : "Couldn't delete.",
+      ),
+  });
   const query = useQuery({
     queryKey: ["admin", "reviews", { page, status }],
     queryFn: () => adminApi.reviews(page, status),
@@ -49,7 +63,23 @@ export default function ReviewsPage() {
       <PageHeader
         title="Reviews"
         description="Homeowners review installers from the link sent after a job is marked as won. Check each one before it goes live."
+        actions={
+          <Button
+            icon={<Plus aria-hidden className="size-4" />}
+            onClick={() => setEditing("new")}
+          >
+            Add review
+          </Button>
+        }
       />
+      {editing ? (
+        <ReviewDrawer
+          key={editing === "new" ? "new" : editing.id}
+          open
+          review={editing === "new" ? null : editing}
+          onClose={() => setEditing(null)}
+        />
+      ) : null}
       <Tabs
         label="Status"
         value={status || "all"}
@@ -155,6 +185,31 @@ export default function ReviewsPage() {
                       {review.status === "published" ? "Unpublish" : "Reject"}
                     </Button>
                   ) : null}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon={<Pencil aria-hidden className="size-3.5" />}
+                    onClick={() => setEditing(review)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-red-600 hover:bg-red-50"
+                    icon={<Trash2 aria-hidden className="size-3.5" />}
+                    loading={remove.isPending && remove.variables === review.id}
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Delete this review by ${review.author_name}? This cannot be undone.`,
+                        )
+                      )
+                        remove.mutate(review.id);
+                    }}
+                  >
+                    Delete
+                  </Button>
                 </div>
               </li>
             ))}

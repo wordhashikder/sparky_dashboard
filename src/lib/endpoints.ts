@@ -3,6 +3,7 @@ import type {
   AccessSession,
   AdminBlogPost,
   AdminContactMessage,
+  AdminCustomer,
   AdminEnquiry,
   AdminInstaller,
   AdminInstallerCreate,
@@ -14,6 +15,7 @@ import type {
   AdminQuote,
   AdminQuoteMatch,
   AdminReview,
+  AdminReviewInput,
   AdminSettings,
   BlogPostInput,
   BlogPostStatus,
@@ -202,6 +204,22 @@ export const adminApi = {
       `/admin/installers/${id}/accreditations/${scheme}`,
       { verified },
     ),
+  deleteInstaller: (id: string) => http.delete(`/admin/installers/${id}`),
+  uploadInstallerLogo: (id: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return http.post<AdminInstaller>(`/admin/installers/${id}/logo`, form);
+  },
+  removeInstallerLogo: (id: string) =>
+    http.delete<AdminInstaller>(`/admin/installers/${id}/logo`),
+  uploadInstallerPhoto: (id: string, file: File, alt: string) => {
+    const form = new FormData();
+    form.append("file", file);
+    if (alt) form.append("alt", alt);
+    return http.post<AdminInstaller>(`/admin/installers/${id}/photos`, form);
+  },
+  deleteInstallerPhoto: (id: string, photoId: string) =>
+    http.delete<AdminInstaller>(`/admin/installers/${id}/photos/${photoId}`),
   claimInvite: (id: string) =>
     http.post<Message>(`/admin/installers/${id}/claim-invite`),
   createInstaller: (body: AdminInstallerCreate) =>
@@ -265,6 +283,21 @@ export const adminApi = {
     }),
   moderateReview: (id: string, status: ReviewStatus) =>
     http.patch<AdminReview>(`/admin/reviews/${id}`, { status }),
+  createReview: (body: AdminReviewInput) =>
+    http.post<AdminReview>("/admin/reviews", body),
+  updateReview: (id: string, body: Partial<AdminReviewInput>) =>
+    http.patch<AdminReview>(`/admin/reviews/${id}`, body),
+  deleteReview: (id: string) => http.delete(`/admin/reviews/${id}`),
+
+  customers: (page: number, q: string) =>
+    http.get<Paginated<AdminCustomer>>("/admin/customers", {
+      page,
+      page_size: 25,
+      q,
+    }),
+  sendCustomerLink: (id: string) =>
+    http.post<Message>(`/admin/customers/${id}/magic-link`),
+  deleteCustomer: (id: string) => http.delete(`/admin/customers/${id}`),
 
   contactMessages: (page: number) =>
     http.get<Paginated<AdminContactMessage>>("/admin/contact-messages", {
@@ -289,6 +322,7 @@ export const adminApi = {
     if (credit) form.append("credit", credit);
     return http.post<AdminLocation>(`/admin/locations/${slug}/image`, form);
   },
+  deleteLocation: (slug: string) => http.delete(`/admin/locations/${slug}`),
   removeLocationImage: (slug: string) =>
     http.delete<AdminLocation>(`/admin/locations/${slug}/image`),
 

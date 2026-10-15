@@ -4,7 +4,7 @@ import { type FormEvent, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Centered } from "@/components/layout/app-shell";
 import { Button, ButtonLink } from "@/components/ui/button";
-import { Field, Input, Notice } from "@/components/ui/form";
+import { Field, Input, Notice, PasswordInput } from "@/components/ui/form";
 import { PageLoader } from "@/components/ui/states";
 import { staffRoleLabels } from "@/lib/access";
 import { ApiError } from "@/lib/api";
@@ -131,10 +131,9 @@ export function AcceptInvitePage() {
                   error={errors.password}
                   hint={POLICY}
                 >
-                  <Input
+                  <PasswordInput
                     id="password"
                     name="password"
-                    type="password"
                     autoComplete="new-password"
                     required
                     aria-invalid={!!errors.password || undefined}
@@ -145,10 +144,9 @@ export function AcceptInvitePage() {
                   htmlFor="confirm"
                   error={errors.confirm}
                 >
-                  <Input
+                  <PasswordInput
                     id="confirm"
                     name="confirm"
-                    type="password"
                     autoComplete="new-password"
                     required
                     aria-invalid={!!errors.confirm || undefined}
