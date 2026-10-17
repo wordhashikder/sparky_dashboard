@@ -21,4 +21,6 @@ export const siteLinks = {
   blogPost: (slug: string) => `${config.siteUrl}/blog/${slug}/`,
   forgotPassword: `${config.siteUrl}/installer/forgot-password/`,
   join: `${config.siteUrl}/join/`,
+  /** Ends the installer's website session, then shows the sign-in page. */
+  installerSignOut: `${config.siteUrl}/installer/sign-out/`,
 };

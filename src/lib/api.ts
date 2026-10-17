@@ -1,11 +1,12 @@
 import { config } from "./config";
+import { sessionRole } from "./session-role";
 import type { AccessSession, ApiErrorBody } from "./types";
 
 /**
  * Browser API client.
  *
  * Sessions: the refresh token lives in an httpOnly cookie the API sets on
- * `/auth/session` (JavaScript never sees it). The short-lived access token is
+ * `/auth/session`, one per role (JavaScript never sees it). The short-lived access token is
  * kept in memory only, so it is gone when the tab closes and cannot be read
  * from storage by injected scripts. A 401 triggers one silent refresh; parallel
  * requests share that refresh.
@@ -121,6 +122,7 @@ export function refreshSession(): Promise<AccessSession | null> {
     try {
       const response = await send("/auth/session/refresh", {
         method: "POST",
+        query: { role: sessionRole() },
         noRetry: true,
       });
       if (response.status === 401) {

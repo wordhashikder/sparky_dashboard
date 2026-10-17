@@ -634,8 +634,14 @@ function UserMenu({ user }: { user: Me }) {
                 type="button"
                 onClick={() => {
                   close();
+                  // Installers also sign in on the website, so signing out
+                  // here ends that session too (otherwise "Electrician login"
+                  // there would open the dashboard again).
+                  const installer = user?.role === "installer";
                   void logout().finally(() =>
-                    navigate("/login", { replace: true }),
+                    installer
+                      ? window.location.assign(siteLinks.installerSignOut)
+                      : navigate("/login", { replace: true }),
                   );
                 }}
                 className="flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left text-red-600 hover:bg-red-50"

@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router";
 import { Centered } from "@/components/layout/app-shell";
@@ -30,6 +31,7 @@ function exchange(code: string) {
 export function SsoPage() {
   const auth = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [params] = useSearchParams();
   const code = params.get("code") ?? "";
   const [failed, setFailed] = useState(false);
@@ -45,15 +47,20 @@ export function SsoPage() {
     }
     exchange(code)
       .then((session) => {
+        // Nothing cached for whoever was here before may reach the new person.
+        queryClient.clear();
         auth.adopt(session);
         navigate(homeFor(session.user), { replace: true });
       })
       .catch(() => setFailed(true));
-  }, [auth, code, navigate]);
+  }, [auth, code, navigate, queryClient]);
 
   if (failed) {
-    // A session that already exists is still good: just open it.
-    if (auth.status === "signed-in") return <Navigate to="/" replace />;
+    // An installer who is already in (a reload of this address, say) is still good: open
+    // their dashboard. Anyone else must sign in; never open another person's session here.
+    if (auth.status === "signed-in" && auth.user.role === "installer") {
+      return <Navigate to="/" replace />;
+    }
     return (
       <Centered>
         <div className="w-full max-w-[420px] text-center">

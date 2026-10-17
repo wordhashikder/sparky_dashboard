@@ -1,4 +1,5 @@
-import { http } from "./api";
+import { http, request } from "./api";
+import { sessionRole } from "./session-role";
 import type {
   AccessSession,
   AdminBlogPost,
@@ -67,7 +68,11 @@ export const publicApi = {
 export const authApi = {
   login: (email: string, password: string) =>
     http.post<AccessSession>("/auth/session", { email, password }),
-  logout: () => http.delete("/auth/session"),
+  logout: () =>
+    request<void>("/auth/session", {
+      method: "DELETE",
+      query: { role: sessionRole() },
+    }),
   /** Open the Dashboard with the one-time code from the website sign-in. */
   handoff: (code: string) =>
     http.post<AccessSession>("/auth/session/handoff", { token: code }),

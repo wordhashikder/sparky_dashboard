@@ -10,6 +10,7 @@ import {
 } from "react";
 import { onSessionExpired, refreshSession, setAccessToken } from "./api";
 import { authApi } from "./endpoints";
+import { forgetRole, rememberRole, wantsFreshSignIn } from "./session-role";
 import type { AccessSession, Me } from "./types";
 
 type AuthState =
@@ -36,10 +37,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const adopt = useCallback((session: AccessSession) => {
     setAccessToken(session.access_token);
+    rememberRole(session.user.role);
     setState({ status: "signed-in", user: session.user });
   }, []);
 
   useEffect(() => {
+    if (wantsFreshSignIn()) {
+      setState({ status: "signed-out", user: null });
+      return;
+    }
     let cancelled = false;
     refreshSession()
       .then((session) => {
@@ -95,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await authApi.logout();
     } finally {
+      forgetRole();
       setAccessToken(null);
       queryClient.clear();
       setState({ status: "signed-out", user: null });
