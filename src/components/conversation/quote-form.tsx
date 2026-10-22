@@ -162,7 +162,7 @@ function LeadSummary({ lead }: { lead: Lead }) {
   const q = lead.quote;
   const progress = lead.progress;
   const left = progress
-    ? Math.max(0, progress.slots_total - progress.quotes_sent)
+    ? Math.max(0, progress.slots_total - progress.responders)
     : null;
   const rows: [string, string][] = [
     ["Postcode", q.postcode],
@@ -179,8 +179,8 @@ function LeadSummary({ lead }: { lead: Lead }) {
           role="status"
           className="rounded-xl border border-[#f5d58a] bg-[#fff8e6] px-4 py-3 text-[13px] text-[#7a5300]"
         >
-          <span className="font-semibold">Be quick!</span> Only{" "}
-          {progress.slots_total} installers can quote &mdash; {left}{" "}
+          <span className="font-semibold">Be quick!</span> Only the first{" "}
+          {progress.slots_total} installers to respond can quote &mdash; {left}{" "}
           {left === 1 ? "slot" : "slots"} left.
         </p>
       ) : null}

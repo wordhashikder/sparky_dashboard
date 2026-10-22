@@ -6,18 +6,11 @@ import type {
   LeadStage,
   LeadStatus,
   OfferStatus,
-  Plan,
   QuoteStatus,
   ReviewStatus,
   ServiceKey,
   SubscriptionStatus,
 } from "./types";
-
-export const planLabels: Record<Plan, string> = {
-  free: "Free",
-  pro: "Pro",
-  premium: "Premium",
-};
 
 export const installerStatusLabels: Record<InstallerStatus, string> = {
   pending: "Pending review",

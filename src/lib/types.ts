@@ -14,8 +14,10 @@ export type Module =
   | "reviews"
   | "inbox"
   | "settings"
+  | "billing"
   | "team";
-export type Plan = "free" | "pro" | "premium";
+/** A plan's key (e.g. "free", "pro"). Plans are managed by the team, so keys are not fixed. */
+export type Plan = string;
 export type InstallerStatus = "pending" | "approved" | "rejected" | "suspended";
 export type InstallerSource = "registered" | "imported";
 export type SubscriptionStatus =
@@ -75,6 +77,7 @@ export interface Me {
     business_name: string;
     status: InstallerStatus;
     plan: Plan;
+    plan_name: string;
     subscription_status: SubscriptionStatus;
   } | null;
   full_name: string | null;
@@ -127,7 +130,11 @@ export interface InstallerProfile {
   photos: Photo[];
   accepts_direct_quotes: boolean;
   status: InstallerStatus;
+  plan_name: string;
+  max_gallery_photos: number;
+  public_service_limit: number | null;
   requested_plan: Plan | null;
+  cancel_at_period_end: boolean;
   subscription_status: SubscriptionStatus;
   current_period_end: string | null;
   base_postcode: string;
@@ -175,26 +182,36 @@ export interface InstallerSummary {
 export interface LeadProgress {
   installers_matched: number;
   quotes_sent: number;
+  /** Installers who have answered: they hold the request's places. */
+  responders: number;
   slots_total: number;
   distance_miles: number | null;
   conversation_id: string | null;
   my_quote_status: OfferStatus | null;
 }
 
+/**
+ * open: view and respond. upgrade_required: Free plan. full: the request already has
+ * its maximum number of responding installers. In the last two only the headline
+ * (name, town, service, timeframe) is sent: the rest is null.
+ */
+export type LeadAccess = "open" | "upgrade_required" | "full";
+
 export interface Lead {
   id: string;
   status: LeadStatus;
   created_at: string;
+  access: LeadAccess;
   progress?: LeadProgress | null;
   quote: {
     reference: string;
     postcode: string;
     district: string | null;
     installation_type: string;
-    charger_location: string;
-    existing_charger: string;
-    charger_followup: string;
-    fuse_box_distance: string;
+    charger_location: string | null;
+    existing_charger: string | null;
+    charger_followup: string | null;
+    fuse_box_distance: string | null;
     vehicle: string | null;
     vehicle_undecided: boolean;
     timing: string;
@@ -365,7 +382,11 @@ export interface AdminInstaller {
   location_slug: string;
   status: InstallerStatus;
   plan: Plan;
+  plan_name: string;
   requested_plan: Plan | null;
+  cancel_at_period_end: boolean;
+  pending_plan: Plan | null;
+  current_period_end: string | null;
   is_featured: boolean;
   subscription_status: SubscriptionStatus;
   rating_avg: number | null;
@@ -478,6 +499,7 @@ export interface QuoteCandidate {
   business_name: string;
   town: string;
   plan: Plan;
+  plan_name: string;
   rating_avg: number | null;
   review_count: number;
   distance_miles: number | null;
@@ -761,4 +783,146 @@ export interface ContentRevision {
   action: "saved" | "reset" | "restored";
   created_at: string;
   author: string | null;
+}
+
+// ---- Plans and billing ----------------------------------------------------------
+
+/** A plan as the installer sees it when choosing or changing plan. */
+export type PlanAction =
+  | "current"
+  | "subscribe"
+  | "upgrade"
+  | "downgrade"
+  | "cancel";
+
+export interface PlanRef {
+  key: Plan;
+  name: string;
+}
+
+export interface PlanOption {
+  key: Plan;
+  name: string;
+  tagline: string | null;
+  features: string[];
+  is_popular: boolean;
+  price_pence: number | null;
+  currency: string;
+  action: PlanAction;
+}
+
+export interface BillingSummary {
+  billing_enabled: boolean;
+  plan: PlanRef;
+  subscription_status: SubscriptionStatus;
+  has_billing_account: boolean;
+  has_subscription: boolean;
+  auto_renew: boolean;
+  cancel_at_period_end: boolean;
+  current_period_end: string | null;
+  price_pence: number | null;
+  currency: string;
+  pending_change: { plan: PlanRef; effective_at: string | null } | null;
+  payment_failed: boolean;
+  options: PlanOption[];
+}
+
+export interface CheckoutStatus {
+  state: "paid" | "processing" | "open" | "expired";
+  plan: PlanRef | null;
+}
+
+export interface Invoice {
+  id: string;
+  number: string | null;
+  status: string;
+  description: string | null;
+  plan_name: string | null;
+  amount_due_pence: number;
+  amount_paid_pence: number;
+  currency: string;
+  billing_reason: string | null;
+  hosted_invoice_url: string | null;
+  invoice_pdf_url: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  issued_at: string;
+  paid_at: string | null;
+}
+
+export interface AdminInvoice extends Invoice {
+  installer_id: string;
+  business_name: string;
+}
+
+export interface BillingActivity {
+  kind: string;
+  message: string;
+  from_plan: Plan | null;
+  to_plan: Plan | null;
+  created_at: string;
+}
+
+export interface PaymentsOverview {
+  active_subscriptions: number;
+  monthly_recurring_pence: number;
+  past_due: number;
+  cancelling: number;
+  paid_last_30_days_pence: number;
+  currency: string;
+}
+
+/** A plan in the team's plan manager. */
+export interface AdminPlan {
+  key: Plan;
+  name: string;
+  tagline: string | null;
+  features: string[];
+  is_default: boolean;
+  is_active: boolean;
+  is_popular: boolean;
+  sort_rank: number;
+  receives_leads: boolean;
+  accepts_direct_quotes: boolean;
+  full_public_profile: boolean;
+  public_service_limit: number | null;
+  max_gallery_photos: number;
+  price_pence: number | null;
+  currency: string;
+  prices: {
+    amount_pence: number;
+    currency: string;
+    is_active: boolean;
+    stripe_price_id: string | null;
+    created_at: string;
+  }[];
+  stripe_product_id: string | null;
+  stripe_price_id: string | null;
+  stripe_synced: boolean;
+  installers: number;
+  subscriptions: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminPlanInput {
+  name: string;
+  tagline: string | null;
+  features: string[];
+  is_active: boolean;
+  is_popular: boolean;
+  sort_rank: number;
+  receives_leads: boolean;
+  accepts_direct_quotes: boolean;
+  full_public_profile: boolean;
+  public_service_limit: number | null;
+  max_gallery_photos: number;
+  price_pence: number | null;
+}
+
+export interface PlanChoice {
+  key: Plan;
+  name: string;
+  is_active: boolean;
+  is_default: boolean;
 }

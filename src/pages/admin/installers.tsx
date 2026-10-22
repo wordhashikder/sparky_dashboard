@@ -39,25 +39,27 @@ import { formatDate } from "@/lib/format";
 import {
   accreditationLabels,
   installerStatusLabels,
-  planLabels,
   sourceLabels,
   subscriptionLabels,
 } from "@/lib/labels";
+import { usePlanChoices } from "@/lib/queries";
 import type {
   AdminInstaller,
   AdminInstallerUpdate,
   InstallerSource,
   InstallerStatus,
-  Plan,
 } from "@/lib/types";
 import { useDebounced } from "@/lib/use-debounced";
 
 type DrawerTab = "overview" | "edit";
 
 const STATUSES = Object.keys(installerStatusLabels) as InstallerStatus[];
-const PLANS = Object.keys(planLabels) as Plan[];
+
+const planName = (plans: ReturnType<typeof usePlanChoices>, key: string) =>
+  plans.data?.find((plan) => plan.key === key)?.name ?? key;
 
 export default function InstallersPage() {
+  const planChoices = usePlanChoices();
   const [params, setParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [adding, setAdding] = useState(false);
@@ -156,8 +158,11 @@ export default function InstallersPage() {
           <FilterSelect
             label="Plan"
             value={filters.plan ?? ""}
-            onChange={(value) => setFilter("plan", value as Plan)}
-            options={PLANS.map((key) => [key, planLabels[key]])}
+            onChange={(value) => setFilter("plan", value)}
+            options={(planChoices.data ?? []).map((plan) => [
+              plan.key,
+              plan.name,
+            ])}
           />
           <FilterSelect
             label="Source"
@@ -223,7 +228,7 @@ export default function InstallersPage() {
                   </Td>
                   <Td>
                     <Badge tone={statusTone[installer.plan]}>
-                      {planLabels[installer.plan]}
+                      {installer.plan_name}
                     </Badge>
                     {installer.is_featured ? (
                       <Badge tone="amber" className="ml-1">
@@ -340,6 +345,7 @@ function InstallerDrawer({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
+  const plans = usePlanChoices();
   const toast = useToast();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const query = useQuery({
@@ -464,9 +470,21 @@ function InstallerDrawer({
                 <Item label="Subscription">
                   {subscriptionLabels[installer.subscription_status]}
                 </Item>
+                {installer.current_period_end ? (
+                  <Item
+                    label={installer.cancel_at_period_end ? "Ends" : "Renews"}
+                  >
+                    {formatDate(installer.current_period_end)}
+                  </Item>
+                ) : null}
+                {installer.pending_plan ? (
+                  <Item label="Moving to">
+                    {planName(plans, installer.pending_plan)}
+                  </Item>
+                ) : null}
                 {installer.requested_plan ? (
                   <Item label="Asked for">
-                    {planLabels[installer.requested_plan]}
+                    {planName(plans, installer.requested_plan)}
                   </Item>
                 ) : null}
                 <Item label="Claimed">{formatDate(installer.claimed_at)}</Item>
@@ -525,12 +543,13 @@ function InstallerDrawer({
                       value={installer.plan}
                       disabled={update.isPending}
                       onChange={(event) =>
-                        update.mutate({ plan: event.target.value as Plan })
+                        update.mutate({ plan: event.target.value })
                       }
                     >
-                      {PLANS.map((key) => (
-                        <option key={key} value={key}>
-                          {planLabels[key]}
+                      {(plans.data ?? []).map((plan) => (
+                        <option key={plan.key} value={plan.key}>
+                          {plan.name}
+                          {plan.is_active ? "" : " (archived)"}
                         </option>
                       ))}
                     </Select>

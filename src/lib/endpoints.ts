@@ -9,17 +9,23 @@ import type {
   AdminInstaller,
   AdminInstallerCreate,
   AdminInstallerUpdate,
+  AdminInvoice,
   AdminLocation,
   AdminLocationCreate,
   AdminLocationUpdate,
   AdminOverview,
+  AdminPlan,
+  AdminPlanInput,
   AdminQuote,
   AdminQuoteMatch,
   AdminReview,
   AdminReviewInput,
   AdminSettings,
+  BillingActivity,
+  BillingSummary,
   BlogPostInput,
   BlogPostStatus,
+  CheckoutStatus,
   ContentData,
   ContentDocument,
   ContentRevision,
@@ -36,6 +42,7 @@ import type {
   InstallerSummary,
   InstallerUpdate,
   InvitePreview,
+  Invoice,
   Lead,
   LeadStage,
   LeadStatus,
@@ -45,8 +52,10 @@ import type {
   Offer,
   OfferCreate,
   Paginated,
+  PaymentsOverview,
   Photo,
   Plan,
+  PlanChoice,
   PlatformSettings,
   QuoteCandidate,
   QuoteStatus,
@@ -105,6 +114,7 @@ export const installerApi = {
   deletePhoto: (id: string) => http.delete(`/installers/me/photos/${id}`),
   leads: (page: number) =>
     http.get<Paginated<Lead>>("/installers/me/leads", { page, page_size: 20 }),
+  lead: (id: string) => http.get<Lead>(`/installers/me/leads/${id}`),
   updateLead: (id: string, status: LeadStatus) =>
     http.patch<Lead>(`/installers/me/leads/${id}`, { status }),
   enquiries: (page: number) =>
@@ -136,9 +146,28 @@ export const installerApi = {
     }),
   withdrawQuote: (id: string) =>
     http.post<Offer>(`/installers/me/quotes/${id}/withdraw`),
-  checkout: (plan: Exclude<Plan, "free">) =>
+};
+
+export const billingApi = {
+  summary: () => http.get<BillingSummary>("/billing/summary"),
+  checkout: (plan: Plan) =>
     http.post<{ url: string }>("/billing/checkout-session", { plan }),
-  billingPortal: () => http.post<{ url: string }>("/billing/portal-session"),
+  checkoutStatus: (sessionId: string) =>
+    http.get<CheckoutStatus>("/billing/checkout-status", {
+      session_id: sessionId,
+    }),
+  changePlan: (plan: Plan) =>
+    http.post<BillingSummary>("/billing/change-plan", { plan }),
+  cancelChange: () => http.post<BillingSummary>("/billing/cancel-change"),
+  cancel: () => http.post<BillingSummary>("/billing/cancel"),
+  resume: () => http.post<BillingSummary>("/billing/resume"),
+  portal: () => http.post<{ url: string }>("/billing/portal-session"),
+  invoices: (page: number) =>
+    http.get<Paginated<Invoice>>("/billing/invoices", {
+      page,
+      page_size: 10,
+    }),
+  activity: () => http.get<BillingActivity[]>("/billing/activity"),
 };
 
 export type InstallerFilters = {
@@ -203,6 +232,7 @@ export const adminApi = {
       page_size: 25,
       ...filters,
     }),
+  planOptions: () => http.get<PlanChoice[]>("/admin/installers/plan-options"),
   installer: (id: string) =>
     http.get<AdminInstaller>(`/admin/installers/${id}`),
   updateInstaller: (id: string, body: AdminInstallerUpdate) =>
@@ -352,4 +382,24 @@ export const adminApi = {
     if (alt) form.append("alt", alt);
     return http.post<AdminBlogPost>(`/admin/blog/posts/${id}/cover`, form);
   },
+
+  plans: () => http.get<AdminPlan[]>("/admin/plans"),
+  createPlan: (body: AdminPlanInput & { key: string }) =>
+    http.post<AdminPlan>("/admin/plans", body),
+  updatePlan: (key: string, body: Partial<AdminPlanInput>) =>
+    http.patch<AdminPlan>(`/admin/plans/${key}`, body),
+  deletePlan: (key: string) => http.delete(`/admin/plans/${key}`),
+  syncPlans: () =>
+    http.post<{ plans_updated: number }>("/admin/plans/sync-stripe"),
+  paymentsOverview: () =>
+    http.get<PaymentsOverview>("/admin/payments/overview"),
+  payments: (
+    page: number,
+    filters: { status?: string; q?: string; installer_id?: string },
+  ) =>
+    http.get<Paginated<AdminInvoice>>("/admin/payments", {
+      page,
+      page_size: 25,
+      ...filters,
+    }),
 };

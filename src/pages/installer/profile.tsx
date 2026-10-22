@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, ImagePlus, Trash2, Upload } from "lucide-react";
 import { type FormEvent, type ReactNode, useRef, useState } from "react";
+import { Link } from "react-router";
 import { ChangePasswordCard } from "@/components/account/change-password";
 import { UpgradeCard } from "@/components/installer/upgrade-card";
 import { Badge, statusTone } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Checkbox, Field, Input, Notice, Textarea } from "@/components/ui/form";
 import { PageHeader } from "@/components/ui/page-header";
@@ -17,7 +18,6 @@ import { formatDate } from "@/lib/format";
 import {
   accreditationLabels,
   installerStatusLabels,
-  planLabels,
   serviceLabels,
   subscriptionLabels,
 } from "@/lib/labels";
@@ -350,9 +350,13 @@ function ServicesCard({ profile }: { profile: InstallerProfile }) {
         {errors.services ? (
           <p className="mt-1.5 text-xs text-red-600">{errors.services}</p>
         ) : null}
-        {profile.plan === "free" ? (
+        {profile.public_service_limit !== null ? (
           <p className="mt-2 text-xs text-subtle">
-            The Free plan shows your first two services publicly.
+            The {profile.plan_name} plan shows your first{" "}
+            {profile.public_service_limit === 1
+              ? "service"
+              : `${profile.public_service_limit} services`}{" "}
+            publicly.
           </p>
         ) : null}
       </fieldset>
@@ -537,16 +541,21 @@ function MediaCard({ profile }: { profile: InstallerProfile }) {
               size="sm"
               variant="outline"
               loading={photo.isPending}
-              disabled={profile.plan === "free"}
+              disabled={profile.photos.length >= profile.max_gallery_photos}
               onClick={() => photoInput.current?.click()}
               icon={<ImagePlus aria-hidden className="size-4" />}
             >
               Add photo
             </Button>
           </div>
-          {profile.plan === "free" ? (
+          {profile.max_gallery_photos === 0 ? (
             <p className="text-xs text-subtle">
-              Gallery photos are part of the Pro and Premium plans.
+              Gallery photos aren't included in the {profile.plan_name} plan.
+              See{" "}
+              <Link to="/billing" className="font-semibold text-primary">
+                Plan &amp; billing
+              </Link>{" "}
+              for the plans that include them.
             </p>
           ) : profile.photos.length === 0 ? (
             <p className="text-sm">
@@ -586,24 +595,13 @@ function MediaCard({ profile }: { profile: InstallerProfile }) {
 }
 
 function MembershipCard({ profile }: { profile: InstallerProfile }) {
-  const toast = useToast();
-  const portal = useMutation({
-    mutationFn: installerApi.billingPortal,
-    onSuccess: ({ url }) => window.location.assign(url),
-    onError: (error) =>
-      toast.error(
-        error instanceof ApiError ? error.message : "Couldn't open billing.",
-      ),
-  });
   return (
     <>
       <Card>
         <CardHeader title="Membership" />
         <CardBody className="space-y-3 text-sm">
           <Row label="Plan">
-            <Badge tone={statusTone[profile.plan]}>
-              {planLabels[profile.plan]}
-            </Badge>
+            <Badge tone={statusTone[profile.plan]}>{profile.plan_name}</Badge>
           </Row>
           <Row label="Listing">
             <Badge tone={statusTone[profile.status]}>
@@ -614,18 +612,13 @@ function MembershipCard({ profile }: { profile: InstallerProfile }) {
             {subscriptionLabels[profile.subscription_status]}
           </Row>
           {profile.current_period_end ? (
-            <Row label="Renews">{formatDate(profile.current_period_end)}</Row>
+            <Row label={profile.cancel_at_period_end ? "Ends" : "Renews"}>
+              {formatDate(profile.current_period_end)}
+            </Row>
           ) : null}
-          {profile.subscription_status !== "none" ? (
-            <Button
-              variant="outline"
-              className="mt-2 w-full"
-              loading={portal.isPending}
-              onClick={() => portal.mutate()}
-            >
-              Manage billing
-            </Button>
-          ) : null}
+          <ButtonLink to="/billing" variant="outline" className="mt-2 w-full">
+            Plan &amp; billing
+          </ButtonLink>
         </CardBody>
       </Card>
       {profile.plan === "free" ? <UpgradeCard compact /> : null}

@@ -18,9 +18,9 @@ import { adminApi } from "@/lib/endpoints";
 import {
   accreditationLabels,
   installerStatusLabels,
-  planLabels,
   serviceLabels,
 } from "@/lib/labels";
+import { usePlanChoices } from "@/lib/queries";
 import type {
   AccreditationScheme,
   AdminInstaller,
@@ -53,6 +53,7 @@ export function AddInstallerDrawer({
   const id = useId();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const plans = usePlanChoices();
   const formRef = useRef<HTMLFormElement>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const create = useMutation({
@@ -195,10 +196,18 @@ export function AddInstallerDrawer({
             </Select>
           </Field>
           <Field label="Plan" htmlFor={`${id}-plan`}>
-            <Select id={`${id}-plan`} name="plan" defaultValue="free">
-              {(Object.keys(planLabels) as Plan[]).map((key) => (
-                <option key={key} value={key}>
-                  {planLabels[key]}
+            <Select
+              key={plans.data ? "ready" : "loading"}
+              id={`${id}-plan`}
+              name="plan"
+              defaultValue={
+                plans.data?.find((plan) => plan.is_default)?.key ?? "free"
+              }
+            >
+              {(plans.data ?? []).map((plan) => (
+                <option key={plan.key} value={plan.key}>
+                  {plan.name}
+                  {plan.is_active ? "" : " (archived)"}
                 </option>
               ))}
             </Select>

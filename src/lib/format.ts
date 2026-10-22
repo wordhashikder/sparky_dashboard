@@ -23,6 +23,17 @@ export const formatDate = (value: string | null | undefined) =>
 export const formatDateTime = (value: string | null | undefined) =>
   value ? dateTimeFormat.format(new Date(value)) : "—";
 
+/** An amount in pence ("£29"; "£29.50" when it has pence), in the given currency. */
+export function formatPence(pence: number, currency = "gbp") {
+  const whole = pence % 100 === 0;
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: currency.toUpperCase(),
+    minimumFractionDigits: whole ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(pence / 100);
+}
+
 export const formatMoney = (value: string | number) =>
   money.format(typeof value === "string" ? Number(value) : value);
 

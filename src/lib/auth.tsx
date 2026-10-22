@@ -23,6 +23,8 @@ type AuthContextValue = AuthState & {
   logout: () => Promise<void>;
   /** Adopt a session returned by the API (e.g. after a password change). */
   adopt: (session: AccessSession) => void;
+  /** Re-read the signed-in person (e.g. after their plan changed). */
+  reload: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -108,9 +110,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [queryClient]);
 
+  const reload = useCallback(async () => {
+    const session = await refreshSession().catch(() => null);
+    if (session) adopt(session);
+  }, [adopt]);
+
   const value = useMemo(
-    () => ({ ...state, login, logout, adopt }),
-    [state, login, logout, adopt],
+    () => ({ ...state, login, logout, adopt, reload }),
+    [state, login, logout, adopt, reload],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

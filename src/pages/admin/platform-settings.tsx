@@ -104,7 +104,7 @@ export default function PlatformSettingsPage() {
                 title="Automatic matching"
                 text={
                   form.lead_matching.automatic
-                    ? "On: each request goes straight to the best-placed installers who cover the address."
+                    ? "On: each request goes straight to every approved installer who covers the address, Free and paid."
                     : "Off: requests wait in Leads & Quotes for you to choose the installers. The homeowner is told you're on it."
                 }
               >
@@ -120,10 +120,10 @@ export default function PlatformSettingsPage() {
                 />
               </SettingRow>
               <Field
-                label="Installers per request"
+                label="Quotes per request"
                 htmlFor="max-installers"
                 error={errors["lead_matching.max_installers"]}
-                hint="The most installers a request is sent to (1 to 20). The website promises “up to 5 quotes”, so change its wording too if you change this."
+                hint="Every eligible installer is told about a request, but only the first this many to respond can quote it (1 to 20). The installer email and the website say “5”, so change their wording too if you change this."
               >
                 <Input
                   id="max-installers"

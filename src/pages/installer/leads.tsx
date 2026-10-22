@@ -7,6 +7,7 @@ import {
 import {
   Clock,
   FileCheck2,
+  Lock,
   Mail,
   MapPin,
   MessageSquare,
@@ -14,7 +15,7 @@ import {
   Star,
   Zap,
 } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useNavigate } from "react-router";
 import { QuoteForm } from "@/components/conversation/quote-form";
 import { UpgradeCard } from "@/components/installer/upgrade-card";
@@ -106,7 +107,7 @@ export default function LeadsPage() {
         ]}
       />
       {tab === "leads" ? (
-        <LeadList canReply={!!s?.receives_leads} />
+        <LeadList />
       ) : (
         <EnquiryList canReply={!!s?.receives_leads} />
       )}
@@ -129,28 +130,34 @@ function useStartConversation() {
   });
 }
 
-function LeadList({ canReply }: { canReply: boolean }) {
-  const [page, setPage] = useState(1);
+/**
+ * "Review & Quote": opens (or finds) the conversation for a lead and shows the quote form.
+ * Shared by the leads list and the single-enquiry page the email button opens.
+ */
+export function useLeadQuote(): {
+  openQuote: (lead: Lead) => void;
+  opening: (leadId: string) => boolean;
+  form: ReactNode;
+} {
   const toast = useToast();
+  const queryClient = useQueryClient();
   const [quoteFor, setQuoteFor] = useState<{
     id: string;
     name: string;
     lead: Lead;
   } | null>(null);
-  const query = useQuery({
-    queryKey: ["installer", "leads", page],
-    queryFn: () => installerApi.leads(page),
-    placeholderData: keepPreviousData,
-  });
   const start = useMutation({
     mutationFn: installerApi.startConversation,
-    onError: (error) =>
+    onError: (error) => {
       toast.error(
         error instanceof ApiError ? error.message : "Couldn't open the lead.",
-      ),
+      );
+      // The enquiry may have filled up, or the plan changed, since the page loaded.
+      void queryClient.invalidateQueries({ queryKey: ["installer"] });
+    },
   });
 
-  async function openQuote(lead: Lead) {
+  async function open(lead: Lead) {
     const existing = lead.progress?.conversation_id;
     if (existing) {
       setQuoteFor({ id: existing, name: lead.quote.first_name, lead });
@@ -163,6 +170,30 @@ function LeadList({ canReply }: { canReply: boolean }) {
       lead,
     });
   }
+
+  return {
+    openQuote: (lead) => void open(lead).catch(() => undefined),
+    opening: (leadId) => start.isPending && start.variables?.lead_id === leadId,
+    form: quoteFor ? (
+      <QuoteForm
+        conversationId={quoteFor.id}
+        homeownerName={quoteFor.name}
+        lead={quoteFor.lead}
+        open
+        onClose={() => setQuoteFor(null)}
+      />
+    ) : null,
+  };
+}
+
+function LeadList() {
+  const [page, setPage] = useState(1);
+  const quote = useLeadQuote();
+  const query = useQuery({
+    queryKey: ["installer", "leads", page],
+    queryFn: () => installerApi.leads(page),
+    placeholderData: keepPreviousData,
+  });
 
   if (query.isPending) return <PageLoader />;
   if (query.isError)
@@ -188,9 +219,8 @@ function LeadList({ canReply }: { canReply: boolean }) {
           <li key={lead.id}>
             <LeadCard
               lead={lead}
-              canReply={canReply}
-              opening={start.isPending && start.variables?.lead_id === lead.id}
-              onQuote={() => void openQuote(lead).catch(() => undefined)}
+              opening={quote.opening(lead.id)}
+              onQuote={() => quote.openQuote(lead)}
             />
           </li>
         ))}
@@ -204,27 +234,22 @@ function LeadList({ canReply }: { canReply: boolean }) {
           noun="leads"
         />
       </Card>
-      {quoteFor ? (
-        <QuoteForm
-          conversationId={quoteFor.id}
-          homeownerName={quoteFor.name}
-          lead={quoteFor.lead}
-          open
-          onClose={() => setQuoteFor(null)}
-        />
-      ) : null}
+      {quote.form}
     </>
   );
 }
 
-function LeadCard({
+/**
+ * One enquiry. Free installers are told about every enquiry in their area but see only
+ * the headline until they upgrade; once an enquiry has its full set of responders,
+ * latecomers see that it is full. Only `open` enquiries can be worked.
+ */
+export function LeadCard({
   lead,
-  canReply,
   opening,
   onQuote,
 }: {
   lead: Lead;
-  canReply: boolean;
   opening: boolean;
   onQuote: () => void;
 }) {
@@ -246,6 +271,7 @@ function LeadCard({
   const q = lead.quote;
   const progress = lead.progress;
   const quoted = progress?.my_quote_status;
+  const open = lead.access === "open";
   const answers: [string, string][] = [
     ["Charger location", answer(q.charger_location, "ChargerLocation")],
     ["Existing charger", answer(q.existing_charger)],
@@ -289,23 +315,31 @@ function LeadCard({
             <span>{q.reference}</span>
           </p>
         </div>
-        <label className="sr-only" htmlFor={`status-${lead.id}`}>
-          Lead status
-        </label>
-        <Select
-          id={`status-${lead.id}`}
-          className="h-8 w-auto text-[13px]"
-          value={lead.status}
-          disabled={update.isPending}
-          onChange={(event) => update.mutate(event.target.value as LeadStatus)}
-        >
-          {lead.status === "sent" ? <option value="sent">New</option> : null}
-          {nextStatuses.map((status) => (
-            <option key={status} value={status}>
-              {leadStatusLabels[status]}
-            </option>
-          ))}
-        </Select>
+        {open ? (
+          <>
+            <label className="sr-only" htmlFor={`status-${lead.id}`}>
+              Lead status
+            </label>
+            <Select
+              id={`status-${lead.id}`}
+              className="h-8 w-auto text-[13px]"
+              value={lead.status}
+              disabled={update.isPending}
+              onChange={(event) =>
+                update.mutate(event.target.value as LeadStatus)
+              }
+            >
+              {lead.status === "sent" ? (
+                <option value="sent">New</option>
+              ) : null}
+              {nextStatuses.map((status) => (
+                <option key={status} value={status}>
+                  {leadStatusLabels[status]}
+                </option>
+              ))}
+            </Select>
+          </>
+        ) : null}
       </div>
 
       <p className="mt-4 inline-flex w-fit items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-forest">
@@ -313,12 +347,21 @@ function LeadCard({
         {answer(q.installation_type)}
       </p>
       <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl bg-cream p-3 text-[13px]">
-        <div>
-          <p className="text-subtle">Charger location</p>
-          <p className="font-medium text-ink">
-            {answer(q.charger_location, "ChargerLocation")}
-          </p>
-        </div>
+        {open ? (
+          <div>
+            <p className="text-subtle">Charger location</p>
+            <p className="font-medium text-ink">
+              {answer(q.charger_location, "ChargerLocation")}
+            </p>
+          </div>
+        ) : (
+          <div>
+            <p className="text-subtle">Location</p>
+            <p className="font-medium text-ink">
+              {q.district ?? "Your service area"}
+            </p>
+          </div>
+        )}
         <div>
           <p className="text-subtle">Timing</p>
           <p className="font-medium text-ink">{answer(q.timing)}</p>
@@ -327,51 +370,55 @@ function LeadCard({
 
       {progress ? <SlotsBar progress={progress} className="mt-4" /> : null}
 
-      <details className="group mt-4 text-[13px]">
-        <summary className="cursor-pointer list-none font-medium text-primary [&::-webkit-details-marker]:hidden">
-          <span className="group-open:hidden">Show all details</span>
-          <span className="hidden group-open:inline">Hide details</span>
-        </summary>
-        <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2">
-          {answers.map(([label, value]) => (
-            <div key={label}>
-              <dt className="text-subtle">{label}</dt>
-              <dd className="text-ink">{value}</dd>
-            </div>
-          ))}
-        </dl>
-        {q.notes ? (
-          <p className="mt-3 rounded-lg bg-surface px-3 py-2 whitespace-pre-line text-ink">
-            {q.notes}
-          </p>
-        ) : null}
-        {q.email ? (
-          <div className="mt-3 flex flex-wrap gap-4">
-            <a
-              href={`mailto:${q.email}`}
-              className="flex items-center gap-1.5 text-primary hover:underline"
-            >
-              <Mail aria-hidden className="size-4" />
-              {q.email}
-            </a>
-            {q.phone ? (
+      {open ? (
+        <details className="group mt-4 text-[13px]">
+          <summary className="cursor-pointer list-none font-medium text-primary [&::-webkit-details-marker]:hidden">
+            <span className="group-open:hidden">Show all details</span>
+            <span className="hidden group-open:inline">Hide details</span>
+          </summary>
+          <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2">
+            {answers.map(([label, value]) => (
+              <div key={label}>
+                <dt className="text-subtle">{label}</dt>
+                <dd className="text-ink">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          {q.notes ? (
+            <p className="mt-3 rounded-lg bg-surface px-3 py-2 whitespace-pre-line text-ink">
+              {q.notes}
+            </p>
+          ) : null}
+          {q.email ? (
+            <div className="mt-3 flex flex-wrap gap-4">
               <a
-                href={`tel:${q.phone.replace(/\s+/g, "")}`}
+                href={`mailto:${q.email}`}
                 className="flex items-center gap-1.5 text-primary hover:underline"
               >
-                <Phone aria-hidden className="size-4" />
-                {q.phone}
+                <Mail aria-hidden className="size-4" />
+                {q.email}
               </a>
-            ) : null}
-          </div>
-        ) : (
-          <p className="mt-3 text-xs text-subtle">
-            Contact details are shared on the Pro and Premium plans.
-          </p>
-        )}
-      </details>
+              {q.phone ? (
+                <a
+                  href={`tel:${q.phone.replace(/\s+/g, "")}`}
+                  className="flex items-center gap-1.5 text-primary hover:underline"
+                >
+                  <Phone aria-hidden className="size-4" />
+                  {q.phone}
+                </a>
+              ) : null}
+            </div>
+          ) : (
+            <p className="mt-3 text-xs text-subtle">
+              Contact details are shared on the Pro and Premium plans.
+            </p>
+          )}
+        </details>
+      ) : null}
 
-      {canReply ? (
+      {!open ? <LockedNotice lead={lead} /> : null}
+
+      {open ? (
         <div className="mt-auto flex flex-wrap gap-2 pt-5">
           <Button
             loading={opening}
@@ -395,7 +442,43 @@ function LeadCard({
   );
 }
 
-/** "2 quotes · 3 slots left": how many installers have quoted and how many places remain. */
+/**
+ * What a Free installer, or a latecomer to a full enquiry, sees instead of the details:
+ * the way to upgrade, or the news that the enquiry is no longer taking quotes.
+ */
+function LockedNotice({ lead }: { lead: Lead }) {
+  const navigate = useNavigate();
+  const slots = lead.progress?.slots_total ?? 5;
+  if (lead.access === "full") {
+    return (
+      <p
+        role="status"
+        className="mt-auto rounded-xl bg-surface px-4 py-3 text-[13px] text-ink"
+      >
+        This enquiry has already received the maximum of {slots} installer
+        quotes, so it's no longer open to new responses.
+      </p>
+    );
+  }
+  return (
+    <div className="mt-auto pt-5">
+      <p className="flex items-start gap-2 text-[13px] text-ink">
+        <Lock aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
+        The customer's answers and contact details are shared with paid members.
+        Upgrade to view this enquiry and respond.
+      </p>
+      <Button
+        className="mt-3"
+        onClick={() => navigate(`/leads/${lead.id}`)}
+        icon={<FileCheck2 aria-hidden className="size-4" />}
+      >
+        View Enquiry &amp; Respond
+      </Button>
+    </div>
+  );
+}
+
+/** "2 responded · 3 slots left": how many installers have answered and how many places remain. */
 export function SlotsBar({
   progress,
   className,
@@ -404,17 +487,16 @@ export function SlotsBar({
   className?: string;
 }) {
   const total = Math.max(1, progress.slots_total);
-  const used = Math.min(progress.quotes_sent, total);
+  const used = Math.min(progress.responders, total);
   const left = Math.max(0, total - used);
   return (
     <div className={className}>
       <div className="flex items-center justify-between gap-2 text-xs">
         <span className="font-medium text-ink">
-          {used} {used === 1 ? "quote" : "quotes"} · {left}{" "}
-          {left === 1 ? "slot" : "slots"} left
+          {used} responded · {left} {left === 1 ? "slot" : "slots"} left
         </span>
         <span className="text-subtle">
-          {progress.installers_matched} installers have this request
+          {progress.installers_matched} installers notified
         </span>
       </div>
       <div
@@ -422,7 +504,7 @@ export function SlotsBar({
         aria-valuemin={0}
         aria-valuemax={total}
         aria-valuenow={used}
-        aria-label={`${used} of ${total} quote slots used`}
+        aria-label={`${used} of ${total} quote slots taken`}
         className="mt-1.5 flex gap-1"
       >
         {Array.from({ length: total }, (_, index) => (

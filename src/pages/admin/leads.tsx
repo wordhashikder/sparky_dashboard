@@ -36,7 +36,6 @@ import { formatDateTime, timeAgo } from "@/lib/format";
 import {
   answer,
   leadStatusLabels,
-  planLabels,
   quoteStatusLabels,
   stageLabels,
   stageTones,
@@ -442,15 +441,7 @@ function QuoteDrawer({
             )}
           </section>
 
-          {data.stage === "closed" ? null : data.installers_matched >=
-            data.max_installers ? (
-            <Notice tone="info">
-              This request has reached its {data.max_installers} installers
-              (Settings › Lead matching).
-            </Notice>
-          ) : (
-            <AssignInstallers quote={data} />
-          )}
+          {data.stage === "closed" ? null : <AssignInstallers quote={data} />}
         </div>
       ) : null}
     </Drawer>
@@ -503,7 +494,8 @@ function AssignInstallers({ quote }: { quote: AdminQuote }) {
           </h3>
           <p className="text-xs text-subtle">
             Installers who cover the address come first. They get the usual
-            new-lead email.
+            new-lead email. Free installers can be sent it too: they upgrade
+            before they can respond.
           </p>
         </div>
         <Button
@@ -528,7 +520,7 @@ function AssignInstallers({ quote }: { quote: AdminQuote }) {
         <ErrorState error={candidates.error} />
       ) : candidates.data.length === 0 ? (
         <p className="px-4 py-6 text-center text-sm">
-          No installers on a plan that receives leads yet.
+          No approved installers with an account yet.
         </p>
       ) : (
         <ul className="max-h-[360px] divide-y divide-line overflow-y-auto">
@@ -571,7 +563,7 @@ function AssignInstallers({ quote }: { quote: AdminQuote }) {
                         ? ` · ${candidate.distance_miles} mi`
                         : ""}
                     </span>
-                    <span>{planLabels[candidate.plan]}</span>
+                    <span>{candidate.plan_name}</span>
                     {candidate.rating_avg !== null ? (
                       <span className="flex items-center gap-1">
                         <Star

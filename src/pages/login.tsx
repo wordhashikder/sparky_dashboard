@@ -64,7 +64,7 @@ export function LoginPage() {
 
   return (
     <Centered>
-      <div className="w-full max-w-[420px]">
+      <div className="w-full max-w-105">
         <img src="/logo.svg" alt="PickASparky" className="mx-auto h-9 w-auto" />
         <div className="mt-8 rounded-2xl border border-line bg-white p-6 shadow-card sm:p-8">
           <h1 className="text-[22px] font-bold">Sign in to your dashboard</h1>

@@ -1,6 +1,7 @@
 import {
   Bell,
   ChevronDown,
+  CreditCard,
   FileText,
   Globe,
   Inbox,
@@ -10,12 +11,14 @@ import {
   MapPinned,
   Menu,
   MessageSquare,
+  Receipt,
   Settings,
   ShieldCheck,
   Star,
   UserCog,
   UserRound,
   Users,
+  Wallet,
   X,
   Zap,
 } from "lucide-react";
@@ -27,7 +30,6 @@ import { can, displayName, greeting, staffRoleLabels } from "@/lib/access";
 import { useAuth, useUser } from "@/lib/auth";
 import { siteLinks } from "@/lib/config";
 import { initials } from "@/lib/format";
-import { planLabels } from "@/lib/labels";
 import { useInstallerSummary, useNavCounts, usePlatform } from "@/lib/queries";
 import type { Me, Module, NavCounts } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -122,6 +124,18 @@ function adminNav(counts: NavCounts | undefined): NavGroup[] {
           icon: ShieldCheck,
           module: "team",
         },
+        {
+          to: "/plans",
+          label: "Plans & pricing",
+          icon: Wallet,
+          module: "billing",
+        },
+        {
+          to: "/payments",
+          label: "Payments",
+          icon: Receipt,
+          module: "billing",
+        },
         { to: "/settings", label: "Settings", icon: Settings },
       ],
     },
@@ -148,6 +162,7 @@ function installerNav(
           icon: MessageSquare,
           badge: unread,
         },
+        { to: "/billing", label: "Plan & billing", icon: CreditCard },
         { to: "/settings", label: "Profile settings", icon: UserCog },
       ],
     },
@@ -564,7 +579,7 @@ function UserMenu({ user }: { user: Me }) {
         ? staffRoleLabels[user.staff_role]
         : "Team"
       : user.installer
-        ? `${planLabels[user.installer.plan]} plan`
+        ? `${user.installer.plan_name} plan`
         : "Installer";
   return (
     <Popover

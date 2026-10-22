@@ -31,8 +31,20 @@ import { SsoPage } from "@/pages/sso";
 
 // Installer
 const InstallerHome = lazy(() => import("@/pages/installer/leads"));
+const InstallerEnquiry = lazy(() => import("@/pages/installer/enquiry"));
 const InstallerMessages = lazy(() => import("@/pages/installer/messages"));
 const InstallerProfile = lazy(() => import("@/pages/installer/profile"));
+const InstallerBilling = lazy(() => import("@/pages/installer/billing"));
+const BillingSuccess = lazy(() =>
+  import("@/pages/installer/billing-return").then((m) => ({
+    default: m.BillingSuccessPage,
+  })),
+);
+const BillingCancelled = lazy(() =>
+  import("@/pages/installer/billing-return").then((m) => ({
+    default: m.BillingCancelledPage,
+  })),
+);
 // Team
 const Overview = lazy(() => import("@/pages/admin/overview"));
 const AdminLeads = lazy(() => import("@/pages/admin/leads"));
@@ -46,6 +58,8 @@ const BlogEditor = lazy(() => import("@/pages/admin/blog-editor"));
 const Reviews = lazy(() => import("@/pages/admin/reviews"));
 const Inbox = lazy(() => import("@/pages/admin/inbox"));
 const Customers = lazy(() => import("@/pages/admin/customers"));
+const Plans = lazy(() => import("@/pages/admin/plans"));
+const Payments = lazy(() => import("@/pages/admin/payments"));
 const Team = lazy(() => import("@/pages/admin/team"));
 const SettingsHub = lazy(() => import("@/pages/admin/settings"));
 const PlatformSettings = lazy(() => import("@/pages/admin/platform-settings"));
@@ -93,6 +107,7 @@ const teamPages: [Module, string][] = [
   ["blog", "/blog"],
   ["reviews", "/reviews"],
   ["inbox", "/inbox"],
+  ["billing", "/plans"],
 ];
 
 function firstTeamPage(user: Me) {
@@ -201,6 +216,8 @@ export const router = createBrowserRouter([
               module="leads"
             />,
           ),
+          // Where the "View Enquiry & Respond" button in the installer's email lands.
+          page("/leads/:leadId", <ByRole installer={InstallerEnquiry} />),
           page(
             "/messages",
             <ByRole
@@ -237,6 +254,12 @@ export const router = createBrowserRouter([
           page("/customers", <ByRole team={Customers} module="leads" />),
           page("/inbox", <ByRole team={Inbox} module="inbox" />),
           page("/team", <ByRole team={Team} module="team" />),
+          page("/plans", <ByRole team={Plans} module="billing" />),
+          page("/payments", <ByRole team={Payments} module="billing" />),
+          // Installers: their plan and payments; Stripe sends them back to the last two.
+          page("/billing", <ByRole installer={InstallerBilling} />),
+          page("/billing/success", <ByRole installer={BillingSuccess} />),
+          page("/billing/cancelled", <ByRole installer={BillingCancelled} />),
           page(
             "/settings/platform",
             <ByRole team={PlatformSettings} module="settings" />,

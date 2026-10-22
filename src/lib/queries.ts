@@ -33,3 +33,14 @@ export function usePlatform() {
     staleTime: 10 * 60_000,
   });
 }
+
+/** Every plan the team can give an installer (Installers screens). */
+export function usePlanChoices() {
+  const user = useUser();
+  return useQuery({
+    queryKey: ["admin", "plan-options"],
+    queryFn: adminApi.planOptions,
+    enabled: user.role === "admin",
+    staleTime: 60_000,
+  });
+}
