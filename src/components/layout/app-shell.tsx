@@ -23,7 +23,14 @@ import {
   Zap,
 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
-import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
+import {
+  Link,
+  matchPath,
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from "react-router";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { Popover } from "@/components/ui/popover";
 import { can, displayName, greeting, staffRoleLabels } from "@/lib/access";
@@ -162,8 +169,8 @@ function installerNav(
           icon: MessageSquare,
           badge: unread,
         },
-        { to: "/billing", label: "Plan & billing", icon: CreditCard },
-        { to: "/settings", label: "Profile settings", icon: UserCog },
+        { to: "/billing", label: "Plan & Billing", icon: CreditCard },
+        { to: "/settings", label: "Profile Settings", icon: UserCog },
       ],
     },
   ];
@@ -412,6 +419,10 @@ function TopBar({
   counts: NavCounts | undefined;
 }) {
   const admin = user.role === "admin";
+  const { pathname } = useLocation();
+  const subtitle = matchPath("/leads/:leadId", pathname)
+    ? "Here’s the enquiry details and next steps."
+    : "Here’s what’s new with your business today.";
   return (
     <header
       className={cn(
@@ -436,15 +447,12 @@ function TopBar({
             <GlobalSearch />
           </div>
         ) : (
-          <p className="hidden truncate text-sm sm:block">
-            <span className="font-semibold text-ink">
+          <div className="hidden min-w-0 leading-tight sm:block">
+            <p className="truncate text-[15px] font-semibold text-ink">
               {greeting()}, {user.full_name?.split(" ")[0] ?? displayName(user)}
-            </span>
-            <span className="hidden sm:inline">
-              {" "}
-              · Here’s what’s new with your business today.
-            </span>
-          </p>
+            </p>
+            <p className="mt-0.5 truncate text-[13px]">{subtitle}</p>
+          </div>
         )}
       </div>
       {admin ? <AdminBell counts={counts} /> : <InstallerBell />}

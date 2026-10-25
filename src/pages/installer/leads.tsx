@@ -18,7 +18,7 @@ import {
 import { type ReactNode, useState } from "react";
 import { useNavigate } from "react-router";
 import { QuoteForm } from "@/components/conversation/quote-form";
-import { UpgradeCard } from "@/components/installer/upgrade-card";
+import { UpgradeBanner } from "@/components/installer/upgrade-banner";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -82,7 +82,7 @@ export default function LeadsPage() {
       ) : null}
       {s && !s.receives_leads ? (
         <div className="mb-6">
-          <UpgradeCard />
+          <UpgradeBanner />
         </div>
       ) : null}
       {s && s.status !== "approved" ? (
