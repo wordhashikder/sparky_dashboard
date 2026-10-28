@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Download, FileUp, Plus } from "lucide-react";
+import { Download, FileUp, Plus, Save } from "lucide-react";
 import { type FormEvent, useId, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -686,8 +686,18 @@ export function DetailsForm({
           })}
         </div>
       </fieldset>
-      <div className="sm:col-span-2">
-        <Button type="submit" variant="outline" loading={saving}>
+      {/* Stays in view while the team scrolls the form, so saving is never out of reach. */}
+      <div className="sticky bottom-0 z-10 -mx-6 mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-white/95 px-6 py-3 backdrop-blur sm:col-span-2">
+        <p className="text-xs text-muted">
+          The website shows your changes as soon as you save.
+        </p>
+        <Button
+          type="submit"
+          size="lg"
+          loading={saving}
+          icon={<Save aria-hidden className="size-[18px]" />}
+          className="min-w-44 shadow-[0_6px_16px_-4px_rgb(10_155_83/0.55)]"
+        >
           Save details
         </Button>
       </div>
