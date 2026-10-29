@@ -15,8 +15,8 @@ import {
   Star,
   Zap,
 } from "lucide-react";
-import { type ReactNode, useState } from "react";
-import { useNavigate } from "react-router";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router";
 import { QuoteForm } from "@/components/conversation/quote-form";
 import { UpgradeBanner } from "@/components/installer/upgrade-banner";
 import { Badge, statusTone } from "@/components/ui/badge";
@@ -43,6 +43,13 @@ export default function LeadsPage() {
   const [tab, setTab] = useState<"leads" | "enquiries">("leads");
   const summary = useInstallerSummary();
   const s = summary.data;
+  // The bell's "new leads" item sends a fresh timestamp each time it is clicked.
+  const location = useLocation();
+  const highlightNew = (location.state as { highlightNew?: number } | null)
+    ?.highlightNew;
+  useEffect(() => {
+    if (highlightNew) setTab("leads");
+  }, [highlightNew]);
 
   return (
     <>
@@ -107,7 +114,7 @@ export default function LeadsPage() {
         ]}
       />
       {tab === "leads" ? (
-        <LeadList />
+        <LeadList highlightNew={highlightNew} />
       ) : (
         <EnquiryList canReply={!!s?.receives_leads} />
       )}
@@ -186,14 +193,71 @@ export function useLeadQuote(): {
   };
 }
 
-function LeadList() {
+/** How often the lead and enquiry cards refresh; matches the counters in the header. */
+const REFRESH_MS = 60_000;
+
+/**
+ * Keeps the header counters in step with a list: whenever the list has just been
+ * refreshed, the summary (counters, bell) is refreshed with it.
+ */
+function useRefreshSummaryWith(dataUpdatedAt: number) {
+  const queryClient = useQueryClient();
+  const last = useRef(dataUpdatedAt);
+  useEffect(() => {
+    if (dataUpdatedAt === last.current) return;
+    last.current = dataUpdatedAt;
+    void queryClient.invalidateQueries({
+      queryKey: ["installer", "summary"],
+    });
+  }, [dataUpdatedAt, queryClient]);
+}
+
+function LeadList({ highlightNew }: { highlightNew?: number }) {
   const [page, setPage] = useState(1);
   const quote = useLeadQuote();
+  const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ["installer", "leads", page],
     queryFn: () => installerApi.leads(page),
     placeholderData: keepPreviousData,
+    refetchInterval: REFRESH_MS,
   });
+  useRefreshSummaryWith(query.dataUpdatedAt);
+
+  // Bell click: show the first page, refresh it, then scroll to and flash the new leads.
+  const listRef = useRef<HTMLUListElement>(null);
+  const [jump, setJump] = useState<number | null>(null);
+  const [flash, setFlash] = useState(false);
+  const flashTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => {
+    if (!highlightNew) return;
+    setPage(1);
+    void queryClient
+      .invalidateQueries({ queryKey: ["installer", "leads"] })
+      .then(() => setJump(highlightNew));
+  }, [highlightNew, queryClient]);
+  useEffect(() => {
+    if (
+      jump === null ||
+      page !== 1 ||
+      query.isFetching ||
+      query.isPlaceholderData ||
+      !listRef.current
+    )
+      return;
+    setJump(null);
+    const first = listRef.current.querySelector<HTMLElement>("[data-new-lead]");
+    if (!first) return;
+    const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    first.scrollIntoView({
+      behavior: calm ? "auto" : "smooth",
+      block: "center",
+    });
+    setFlash(true);
+    clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setFlash(false), 3000);
+  }, [jump, page, query.isFetching, query.isPlaceholderData]);
+  useEffect(() => () => clearTimeout(flashTimer.current), []);
 
   if (query.isPending) return <PageLoader />;
   if (query.isError)
@@ -214,10 +278,11 @@ function LeadList() {
 
   return (
     <>
-      <ul className="grid gap-4 xl:grid-cols-2">
+      <ul ref={listRef} className="grid gap-4 xl:grid-cols-2">
         {items.map((lead) => (
           <li key={lead.id}>
             <LeadCard
+              flash={flash}
               lead={lead}
               opening={quote.opening(lead.id)}
               onQuote={() => quote.openQuote(lead)}
@@ -248,10 +313,13 @@ export function LeadCard({
   lead,
   opening,
   onQuote,
+  flash = false,
 }: {
   lead: Lead;
   opening: boolean;
   onQuote: () => void;
+  /** Briefly ring a new lead, after the bell sends the installer here. */
+  flash?: boolean;
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -282,9 +350,11 @@ export function LeadCard({
 
   return (
     <article
+      data-new-lead={lead.status === "sent" ? "" : undefined}
       className={cn(
-        "flex h-full flex-col rounded-2xl border bg-white p-5 shadow-soft",
+        "flex h-full flex-col rounded-2xl border bg-white p-5 shadow-soft transition-shadow duration-500",
         lead.status === "sent" ? "border-primary/40" : "border-line",
+        flash && lead.status === "sent" && "ring-4 ring-primary/50",
       )}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -529,7 +599,9 @@ function EnquiryList({ canReply }: { canReply: boolean }) {
     queryKey: ["installer", "enquiries", page],
     queryFn: () => installerApi.enquiries(page),
     placeholderData: keepPreviousData,
+    refetchInterval: REFRESH_MS,
   });
+  useRefreshSummaryWith(query.dataUpdatedAt);
 
   if (query.isPending) return <PageLoader />;
   if (query.isError)

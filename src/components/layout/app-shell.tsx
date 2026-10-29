@@ -541,8 +541,20 @@ function InstallerBell() {
   const summary = useInstallerSummary();
   const s = summary.data;
   const items = [
-    { count: s?.new_leads, text: "new leads", to: "/" },
-    { count: s?.unread_conversations, text: "unread replies", to: "/messages" },
+    {
+      count: s?.new_leads,
+      text: "new leads",
+      to: "/",
+      // A fresh value on every click, so the leads page scrolls to and highlights
+      // the new leads even when it is already open.
+      state: { highlightNew: Date.now() },
+    },
+    {
+      count: s?.unread_conversations,
+      text: "unread replies",
+      to: "/messages",
+      state: undefined,
+    },
   ].filter((item): item is typeof item & { count: number } => !!item.count);
   const total = items.reduce((sum, item) => sum + item.count, 0);
   return (
@@ -560,6 +572,7 @@ function InstallerBell() {
               <li key={item.to}>
                 <Link
                   to={item.to}
+                  state={item.state}
                   onClick={close}
                   className="flex items-center gap-3 px-4 py-2.5 hover:bg-canvas"
                 >

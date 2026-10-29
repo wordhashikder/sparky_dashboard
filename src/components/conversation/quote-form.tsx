@@ -74,7 +74,7 @@ export function QuoteForm({
     <Drawer
       open={open}
       onClose={onClose}
-      title={lead ? "Submit Quote to Homeowner" : "Send a quote"}
+      title={lead ? "Submit Quote to Customer" : "Send a quote"}
       description={`${homeownerName} sees your quote in their quote dashboard and can accept or decline it there.`}
       footer={
         <>
@@ -82,7 +82,7 @@ export function QuoteForm({
             Cancel
           </Button>
           <Button type="submit" form={id} loading={send.isPending}>
-            {lead ? "Submit Quote to Homeowner" : "Send quote"}
+            {lead ? "Submit Quote to Customer" : "Send quote"}
           </Button>
         </>
       }
@@ -185,6 +185,31 @@ function LeadSummary({ lead }: { lead: Lead }) {
         </p>
       ) : null}
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 rounded-xl bg-cream p-4 text-[13px]">
+        {q.first_name || q.email ? (
+          <div className="col-span-2 grid grid-cols-2 gap-x-4 border-b border-line pb-2.5">
+            <div className="min-w-0">
+              <dt className="text-subtle">Name</dt>
+              <dd className="font-medium break-words text-ink">
+                {q.first_name || "-"}
+              </dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-subtle">Email</dt>
+              <dd className="font-medium break-words text-ink">
+                {q.email ? (
+                  <a
+                    href={`mailto:${q.email}`}
+                    className="text-primary hover:underline"
+                  >
+                    {q.email}
+                  </a>
+                ) : (
+                  "-"
+                )}
+              </dd>
+            </div>
+          </div>
+        ) : null}
         {rows.map(([label, value]) => (
           <div key={label}>
             <dt className="text-subtle">{label}</dt>
