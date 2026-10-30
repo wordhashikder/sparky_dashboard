@@ -66,7 +66,7 @@ export default function MessagesPage() {
         ]}
       />
       {view === "quotes" ? (
-        <QuotesTable />
+        <QuotesTable onOpen={() => setView("all")} />
       ) : (
         <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
           <div className={cn(conversationId && "max-lg:hidden")}>
@@ -373,7 +373,8 @@ function ConversationPanel({ id }: { id: string }) {
   );
 }
 
-function QuotesTable() {
+/** `onOpen`: leave the quotes list, so the conversation the link opens is what's shown. */
+function QuotesTable({ onOpen }: { onOpen: () => void }) {
   const [page, setPage] = useState(1);
   const query = useQuery({
     queryKey: ["installer", "quotes", page],
@@ -425,6 +426,9 @@ function QuotesTable() {
                 <Td className="text-right">
                   <Link
                     to={`/messages/${quote.conversation_id}`}
+                    onClick={onOpen}
+                    title="Open the conversation for this quote"
+                    aria-label={`Open the conversation with ${quote.homeowner_name} about quote ${quote.reference}`}
                     className="text-[13px] font-medium text-primary hover:underline"
                   >
                     Open

@@ -40,7 +40,13 @@ import {
   stageLabels,
   stageTones,
 } from "@/lib/labels";
-import type { AdminQuote, LeadStage, QuoteStatus } from "@/lib/types";
+import type {
+  AdminQuote,
+  AdminQuoteMatch,
+  LeadStage,
+  LeadStatus,
+  QuoteStatus,
+} from "@/lib/types";
 import { useDebounced } from "@/lib/use-debounced";
 import { cn } from "@/lib/utils";
 
@@ -394,57 +400,136 @@ function QuoteDrawer({
             </p>
           ) : null}
 
-          <section>
-            <h3 className="mb-2 text-[13px] font-semibold text-ink">Sent to</h3>
-            {matches.isPending ? (
-              <PageLoader />
-            ) : matches.data && matches.data.length > 0 ? (
-              <ul className="divide-y divide-line rounded-xl border border-line">
-                {matches.data.map((match) => (
-                  <li
-                    key={match.id}
-                    className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
-                  >
-                    <a
-                      href={siteLinks.installer(match.installer_slug)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 font-medium text-ink hover:text-primary"
-                    >
-                      {match.installer_name}
-                      <ExternalLink aria-hidden className="size-3.5" />
-                    </a>
-                    <div className="flex items-center gap-2">
-                      <Badge tone={statusTone[match.status]}>
-                        {leadStatusLabels[match.status]}
-                      </Badge>
-                      {can(user, "messages") ? (
-                        <Link
-                          to={`/messages?installer=${match.installer_id}&q=${encodeURIComponent(data.first_name)}`}
-                          className="text-primary hover:text-primary-dark"
-                          aria-label={`Messages with ${match.installer_name}`}
-                          title="Messages"
-                        >
-                          <MessageSquare aria-hidden className="size-4" />
-                        </Link>
-                      ) : null}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm">
-                {data.status === "new"
-                  ? "Not sent to anyone yet."
-                  : "No installer covered this postcode, so the team was alerted."}
-              </p>
-            )}
-          </section>
+          <SentTo
+            requestStatus={data.status}
+            matches={matches.data}
+            loading={matches.isPending}
+            message={can(user, "messages")}
+            customer={data.first_name}
+          />
 
           {data.stage === "closed" ? null : <AssignInstallers quote={data} />}
         </div>
       ) : null}
     </Drawer>
+  );
+}
+
+const SENT_TO_SEARCH_FROM = 8;
+
+/**
+ * Every installer a request went to, with where each one has got to. Requests go to all
+ * eligible installers in range, so the list can be long: it shows a count and a tally by
+ * status, scrolls inside its own box and, once it is long, can be searched by name.
+ */
+function SentTo({
+  requestStatus,
+  matches,
+  loading,
+  message,
+  customer,
+}: {
+  requestStatus: QuoteStatus;
+  matches: AdminQuoteMatch[] | undefined;
+  loading: boolean;
+  message: boolean;
+  customer: string;
+}) {
+  const [search, setSearch] = useState("");
+  const all = matches ?? [];
+  const term = search.trim().toLowerCase();
+  const shown = term
+    ? all.filter((match) => match.installer_name.toLowerCase().includes(term))
+    : all;
+  const tally = (Object.keys(leadStatusLabels) as LeadStatus[])
+    .map((status) => ({
+      status,
+      count: all.filter((match) => match.status === status).length,
+    }))
+    .filter((item) => item.count > 0);
+
+  return (
+    <section>
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h3 className="text-[13px] font-semibold text-ink">
+          Sent to
+          {all.length > 0 ? (
+            <span className="ml-1.5 font-normal text-subtle">
+              {all.length} installer{all.length === 1 ? "" : "s"}
+            </span>
+          ) : null}
+        </h3>
+        {tally.length > 0 ? (
+          <p className="flex flex-wrap gap-x-3 text-xs text-subtle">
+            {tally.map((item) => (
+              <span key={item.status}>
+                {item.count} {leadStatusLabels[item.status].toLowerCase()}
+              </span>
+            ))}
+          </p>
+        ) : null}
+      </div>
+      {loading ? (
+        <PageLoader />
+      ) : all.length > 0 ? (
+        <>
+          {all.length > SENT_TO_SEARCH_FROM ? (
+            <Input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search these installers by name"
+              aria-label="Search installers this request was sent to"
+              className="mb-2"
+            />
+          ) : null}
+          <ul className="max-h-96 divide-y divide-line overflow-y-auto rounded-xl border border-line">
+            {shown.map((match) => (
+              <li
+                key={match.id}
+                className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
+              >
+                <a
+                  href={siteLinks.installer(match.installer_slug)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex min-w-0 items-center gap-1.5 font-medium text-ink hover:text-primary"
+                >
+                  <span className="truncate">{match.installer_name}</span>
+                  <ExternalLink aria-hidden className="size-3.5 shrink-0" />
+                </a>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Badge tone={statusTone[match.status]}>
+                    {leadStatusLabels[match.status]}
+                  </Badge>
+                  {message ? (
+                    <Link
+                      to={`/messages?installer=${match.installer_id}&q=${encodeURIComponent(customer)}`}
+                      className="text-primary hover:text-primary-dark"
+                      aria-label={`Messages with ${match.installer_name}`}
+                      title="Messages"
+                    >
+                      <MessageSquare aria-hidden className="size-4" />
+                    </Link>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+            {shown.length === 0 ? (
+              <li className="px-4 py-3 text-sm">
+                No installer matches "{search.trim()}".
+              </li>
+            ) : null}
+          </ul>
+        </>
+      ) : (
+        <p className="text-sm">
+          {requestStatus === "new"
+            ? "Not sent to anyone yet."
+            : "No installer covered this postcode, so the team was alerted."}
+        </p>
+      )}
+    </section>
   );
 }
 

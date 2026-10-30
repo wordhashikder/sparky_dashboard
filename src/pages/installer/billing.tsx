@@ -6,13 +6,20 @@ import {
 } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  ArrowUp,
+  BellOff,
   CalendarClock,
   Check,
   CreditCard,
   ExternalLink,
   FileText,
+  Zap,
 } from "lucide-react";
 import { useState } from "react";
+import {
+  PlanChangeDialog,
+  type PlanChangeDialogContent,
+} from "@/components/installer/plan-change-dialog";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -50,6 +57,11 @@ export default function BillingPage() {
     queryKey: SUMMARY_KEY,
     queryFn: billingApi.summary,
   });
+  // The change the installer is being asked to confirm (see PlanChangeDialog).
+  const [asking, setAsking] = useState<{
+    content: PlanChangeDialogContent;
+    run: () => Promise<unknown>;
+  } | null>(null);
 
   const onError = (error: unknown) =>
     toast.error(
@@ -126,6 +138,10 @@ export default function BillingPage() {
     dropChange.isPending ||
     subscribe.isPending;
 
+  const endDate = data.current_period_end
+    ? formatDate(data.current_period_end)
+    : "the end of this period";
+
   function choose(option: PlanOption) {
     const price =
       option.price_pence !== null
@@ -134,35 +150,45 @@ export default function BillingPage() {
     if (option.action === "subscribe") {
       subscribe.mutate(option.key);
     } else if (option.action === "upgrade") {
-      if (
-        window.confirm(
-          `Upgrade to ${option.name} (${price}/month)? The change starts now and your card is charged the difference for the rest of this period.`,
-        )
-      )
-        changePlan.mutate(option.key);
+      setAsking({
+        content: upgradeContent(option, price),
+        run: () => changePlan.mutateAsync(option.key),
+      });
     } else if (option.action === "downgrade") {
-      if (
-        window.confirm(
-          `Move to ${option.name} (${price}/month)? You keep your current plan until ${
-            data.current_period_end
-              ? formatDate(data.current_period_end)
-              : "the end of this period"
-          }, then switch automatically.`,
-        )
-      )
-        changePlan.mutate(option.key);
+      setAsking({
+        content: downgradeContent(data, option, price, endDate),
+        run: () => changePlan.mutateAsync(option.key),
+      });
     } else if (option.action === "cancel") {
-      if (
-        window.confirm(
-          `Switch to ${option.name}? Your paid plan stays until ${
-            data.current_period_end
-              ? formatDate(data.current_period_end)
-              : "the end of this period"
-          }, then you move to ${option.name} and you won't be charged again.`,
-        )
-      )
-        cancel.mutate(undefined);
+      setAsking({
+        content: leaveContent(data, endDate, {
+          title: `Are you sure you want to switch to ${option.name}?`,
+          intro: `You won't receive future job requests while you're on the ${option.name} plan. `,
+          linkLabel: `Switch to ${option.name}`,
+          keepLabel: `Keep ${data.plan.name} plan`,
+          destination: option.name,
+        }),
+        run: () => cancel.mutateAsync(undefined),
+      });
     }
+  }
+
+  function toggleRenewal() {
+    if (data.cancel_at_period_end) {
+      resume.mutate(undefined);
+      return;
+    }
+    const free = data.options.find((option) => option.action === "cancel");
+    setAsking({
+      content: leaveContent(data, endDate, {
+        title: "Turn off auto-renewal?",
+        intro: "",
+        linkLabel: "Turn off auto-renewal",
+        keepLabel: "Keep auto-renewal on",
+        destination: free?.name ?? "the Free plan",
+      }),
+      run: () => cancel.mutateAsync(undefined),
+    });
   }
 
   return (
@@ -205,19 +231,7 @@ export default function BillingPage() {
           busy={busy}
           portalLoading={portal.isPending}
           onPortal={() => portal.mutate()}
-          onToggleRenewal={() => {
-            if (data.cancel_at_period_end) resume.mutate(undefined);
-            else if (
-              window.confirm(
-                `Turn off auto-renewal? Your ${data.plan.name} plan stays until ${
-                  data.current_period_end
-                    ? formatDate(data.current_period_end)
-                    : "the end of this period"
-                }, then you move to the free plan.`,
-              )
-            )
-              cancel.mutate(undefined);
-          }}
+          onToggleRenewal={toggleRenewal}
           onDropChange={() => dropChange.mutate(undefined)}
         />
 
@@ -239,6 +253,7 @@ export default function BillingPage() {
                       subscribe.variables === option.key) ||
                     (cancel.isPending && option.action === "cancel")
                   }
+                  scheduledFor={scheduledFor(option, data)}
                   onChoose={() => choose(option)}
                 />
               ))}
@@ -249,7 +264,124 @@ export default function BillingPage() {
         <Invoices />
         <Activity />
       </div>
+
+      <PlanChangeDialog
+        content={asking?.content ?? null}
+        onConfirm={() => asking?.run() ?? Promise.resolve()}
+        onClose={() => setAsking(null)}
+      />
     </>
+  );
+}
+
+/** When this plan card's change has already been booked, so the button says so. */
+function scheduledFor(option: PlanOption, data: BillingSummary): string | null {
+  const when = data.current_period_end
+    ? formatDate(data.current_period_end)
+    : "the end of this period";
+  if (option.action === "cancel" && data.cancel_at_period_end) return when;
+  if (data.pending_change?.plan.key === option.key) {
+    return data.pending_change.effective_at
+      ? formatDate(data.pending_change.effective_at)
+      : when;
+  }
+  return null;
+}
+
+/** "You can upgrade to Pro or Premium": every paid plan, whichever one they are on now. */
+function paidPlanNames(data: BillingSummary): string {
+  const names = data.options
+    .filter((option) => option.action !== "cancel")
+    .map((option) => option.name);
+  return names.length > 1
+    ? `${names.slice(0, -1).join(", ")} or ${names.at(-1)}`
+    : (names[0] ?? "a paid plan");
+}
+
+/** Leaving a paid plan for the free one (a cancellation at the end of the period). */
+function leaveContent(
+  data: BillingSummary,
+  endDate: string,
+  text: {
+    title: string;
+    intro: string;
+    linkLabel: string;
+    keepLabel: string;
+    destination: string;
+  },
+): PlanChangeDialogContent {
+  return {
+    tone: "warning",
+    icon: AlertCircleIcon,
+    title: text.title,
+    body: `${text.intro}Your current ${data.plan.name} plan will stay active until ${endDate}, then you'll be moved to ${text.destination} and you won't be charged again.`,
+    points: [
+      { icon: BellOff, text: "You won't receive future job requests." },
+      {
+        icon: ArrowUp,
+        text: `You can upgrade to ${paidPlanNames(data)} at any time.`,
+      },
+    ],
+    primaryLabel: text.keepLabel,
+    linkLabel: text.linkLabel,
+    confirm: "link",
+  };
+}
+
+/** Moving to a cheaper paid plan: booked for the end of the period. */
+function downgradeContent(
+  data: BillingSummary,
+  option: PlanOption,
+  price: string,
+  endDate: string,
+): PlanChangeDialogContent {
+  return {
+    tone: "warning",
+    icon: AlertCircleIcon,
+    title: `Are you sure you want to switch to ${option.name}?`,
+    body: `Your current ${data.plan.name} plan will stay active until ${endDate}, then you'll be moved to ${option.name}${price ? ` (${price}/month)` : ""}. Until then nothing changes.`,
+    points: [
+      {
+        icon: CalendarClock,
+        text: `${data.plan.name} benefits end on ${endDate}.`,
+      },
+      { icon: ArrowUp, text: "You can upgrade again at any time." },
+    ],
+    primaryLabel: `Keep ${data.plan.name} plan`,
+    linkLabel: `Switch to ${option.name}`,
+    confirm: "link",
+  };
+}
+
+/** Moving to a dearer plan: starts now, the card is charged the difference. */
+function upgradeContent(
+  option: PlanOption,
+  price: string,
+): PlanChangeDialogContent {
+  return {
+    tone: "positive",
+    icon: ArrowUp,
+    title: `Upgrade to ${option.name}?`,
+    body: `The ${option.name} plan${price ? ` (${price}/month)` : ""} starts now, and your card is charged the difference for the rest of this billing period.`,
+    points: [
+      { icon: Zap, text: "Your new features start straight away." },
+      {
+        icon: CreditCard,
+        text: "You only pay the difference for this period.",
+      },
+    ],
+    primaryLabel: `Upgrade to ${option.name}`,
+    linkLabel: "Not now",
+    confirm: "primary",
+  };
+}
+
+/** The "!" in the amber circle: shown for anything that takes something away. */
+function AlertCircleIcon() {
+  return (
+    <span aria-hidden className="text-[40px] leading-none font-extrabold">
+      !
+    </span>
   );
 }
 
@@ -359,11 +491,14 @@ function PlanCard({
   option,
   disabled,
   loading,
+  scheduledFor,
   onChoose,
 }: {
   option: PlanOption;
   disabled: boolean;
   loading: boolean;
+  /** The date a change to this plan has been booked for, when it has. */
+  scheduledFor: string | null;
   onChoose: () => void;
 }) {
   const current = option.action === "current";
@@ -403,12 +538,19 @@ function PlanCard({
       </ul>
       <Button
         className="mt-5 w-full"
-        variant={current || option.action === "cancel" ? "outline" : "primary"}
-        disabled={current || disabled}
+        variant={
+          current || scheduledFor || option.action === "cancel"
+            ? "outline"
+            : "primary"
+        }
+        disabled={current || !!scheduledFor || disabled}
         loading={loading}
+        icon={
+          scheduledFor ? <CalendarClock aria-hidden className="size-4" /> : null
+        }
         onClick={onChoose}
       >
-        {label}
+        {scheduledFor ? `Switching on ${scheduledFor}` : label}
       </Button>
     </article>
   );
