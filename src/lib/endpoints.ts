@@ -271,12 +271,18 @@ export const adminApi = {
 
   quotes: (
     page: number,
-    filters: { q?: string; status?: QuoteStatus | ""; stage?: LeadStage | "" },
+    filters: {
+      q?: string;
+      status?: QuoteStatus | "";
+      stage?: LeadStage | "";
+      waiting?: boolean;
+    },
   ) =>
     http.get<Paginated<AdminQuote>>("/admin/quotes", {
       page,
       page_size: 25,
       ...filters,
+      waiting: filters.waiting ? true : undefined,
     }),
   quoteStages: () => http.get<StageCounts>("/admin/quotes/stages"),
   quote: (id: string) => http.get<AdminQuote>(`/admin/quotes/${id}`),

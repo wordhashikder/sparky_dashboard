@@ -102,8 +102,9 @@ function QuoteRequests() {
 
   const filters = {
     q,
-    status: chip === "held" ? ("new" as const) : status,
+    status: chip === "held" ? ("" as const) : status,
     stage: chip === "all" || chip === "held" ? ("" as const) : chip,
+    waiting: chip === "held",
   };
   const query = useQuery({
     queryKey: ["admin", "quotes", { page, ...filters }],
@@ -223,8 +224,9 @@ function QuoteRequests() {
         </div>
         {chip === "held" ? (
           <Notice tone="warning" className="m-4">
-            Automatic matching is off (Settings), so these requests wait for
-            you. Open one and choose its installers.
+            These requests are waiting for you: automatic matching is off
+            (Settings), or no installer covered the address. Open one and choose
+            its installers.
           </Notice>
         ) : null}
         {query.isPending ? (
