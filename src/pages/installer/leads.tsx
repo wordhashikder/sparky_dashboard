@@ -8,10 +8,8 @@ import {
   Clock,
   FileCheck2,
   Lock,
-  Mail,
   MapPin,
   MessageSquare,
-  Phone,
   Star,
   Zap,
 } from "lucide-react";
@@ -459,30 +457,10 @@ export function LeadCard({
               {q.notes}
             </p>
           ) : null}
-          {q.email ? (
-            <div className="mt-3 flex flex-wrap gap-4">
-              <a
-                href={`mailto:${q.email}`}
-                className="flex items-center gap-1.5 text-primary hover:underline"
-              >
-                <Mail aria-hidden className="size-4" />
-                {q.email}
-              </a>
-              {q.phone ? (
-                <a
-                  href={`tel:${q.phone.replace(/\s+/g, "")}`}
-                  className="flex items-center gap-1.5 text-primary hover:underline"
-                >
-                  <Phone aria-hidden className="size-4" />
-                  {q.phone}
-                </a>
-              ) : null}
-            </div>
-          ) : (
-            <p className="mt-3 text-xs text-subtle">
-              Contact details are shared on the Pro and Premium plans.
-            </p>
-          )}
+          <p className="mt-3 text-xs text-subtle">
+            To reach the customer, use Messages or send a quote. Their email
+            address and phone number stay private.
+          </p>
         </details>
       ) : null}
 
@@ -649,24 +627,10 @@ function EnquiryList({ canReply }: { canReply: boolean }) {
               <p className="mt-3 text-sm whitespace-pre-line text-ink">
                 {enquiry.message}
               </p>
-              <div className="mt-3 flex flex-wrap gap-4 text-[13px]">
-                <a
-                  href={`mailto:${enquiry.email}`}
-                  className="flex items-center gap-1.5 text-primary hover:underline"
-                >
-                  <Mail aria-hidden className="size-4" />
-                  {enquiry.email}
-                </a>
-                {enquiry.phone ? (
-                  <a
-                    href={`tel:${enquiry.phone.replace(/\s+/g, "")}`}
-                    className="flex items-center gap-1.5 text-primary hover:underline"
-                  >
-                    <Phone aria-hidden className="size-4" />
-                    {enquiry.phone}
-                  </a>
-                ) : null}
-              </div>
+              <p className="mt-3 text-xs text-subtle">
+                To reach the customer, use Message &amp; quote. Their email
+                address and phone number stay private.
+              </p>
             </li>
           ))}
         </ul>

@@ -185,29 +185,10 @@ function LeadSummary({ lead }: { lead: Lead }) {
         </p>
       ) : null}
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 rounded-xl bg-cream p-4 text-[13px]">
-        {q.first_name || q.email ? (
-          <div className="col-span-2 grid grid-cols-2 gap-x-4 border-b border-line pb-2.5">
-            <div className="min-w-0">
-              <dt className="text-subtle">Name</dt>
-              <dd className="font-medium break-words text-ink">
-                {q.first_name || "-"}
-              </dd>
-            </div>
-            <div className="min-w-0">
-              <dt className="text-subtle">Email</dt>
-              <dd className="font-medium break-words text-ink">
-                {q.email ? (
-                  <a
-                    href={`mailto:${q.email}`}
-                    className="text-primary hover:underline"
-                  >
-                    {q.email}
-                  </a>
-                ) : (
-                  "-"
-                )}
-              </dd>
-            </div>
+        {q.first_name ? (
+          <div className="col-span-2 min-w-0 border-b border-line pb-2.5">
+            <dt className="text-subtle">Name</dt>
+            <dd className="font-medium break-words text-ink">{q.first_name}</dd>
           </div>
         ) : null}
         {rows.map(([label, value]) => (

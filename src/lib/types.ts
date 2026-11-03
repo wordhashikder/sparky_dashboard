@@ -217,16 +217,12 @@ export interface Lead {
     timing: string;
     notes: string | null;
     first_name: string;
-    email: string | null;
-    phone: string | null;
   };
 }
 
 export interface Enquiry {
   id: string;
   name: string;
-  email: string;
-  phone: string | null;
   message: string;
   created_at: string;
 }
@@ -264,7 +260,7 @@ export interface ConversationSummary {
   installer_name: string;
   installer_slug: string;
   homeowner_name: string;
-  homeowner_email: string;
+  homeowner_email: string | null;
   kind: "lead" | "enquiry";
   lead_id: string | null;
   enquiry_id: string | null;
@@ -517,6 +513,8 @@ export interface AdminQuoteMatch {
 }
 
 export interface AdminEnquiry extends Enquiry {
+  email: string;
+  phone: string | null;
   installer_id: string;
   installer_slug: string;
   installer_name: string;
