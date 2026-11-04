@@ -241,6 +241,7 @@ function BusinessDetails({ profile }: { profile: InstallerProfile }) {
           label="Companies House number (optional)"
           htmlFor="company_number"
           error={errors.company_number}
+          hint="Used for verification, not shown publicly."
         >
           <Input
             id="company_number"
@@ -254,6 +255,7 @@ function BusinessDetails({ profile }: { profile: InstallerProfile }) {
           label="Years of experience (optional)"
           htmlFor="years_experience"
           error={errors.years_experience}
+          hint="Shown on your public profile."
         >
           <Input
             id="years_experience"

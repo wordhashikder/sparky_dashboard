@@ -590,6 +590,7 @@ export function DetailsForm({
         label="Company number"
         htmlFor={`${id}-company`}
         error={errors.company_number}
+        hint="Used for verification, not shown publicly."
       >
         <Input
           id={`${id}-company`}
