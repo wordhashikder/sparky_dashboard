@@ -359,8 +359,8 @@ function ConversationPanel({ id }: { id: string }) {
           </Button>
         </form>
         <p className="text-xs text-subtle">
-          {detail.homeowner_name} is emailed a private link to read and reply.
-          Press Ctrl+Enter to send.
+          {detail.homeowner_name} will receive a private link by email to read
+          and reply to your message. Press Ctrl+Enter to send.
         </p>
       </div>
       <QuoteForm
