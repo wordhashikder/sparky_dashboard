@@ -327,7 +327,8 @@ function PlanDrawer({
         .split("\n")
         .map((line) => line.trim())
         .filter(Boolean),
-      is_active: form.has("is_active"),
+      // The default plan has no "On sale" switch. Sending false for it would mean "archive it".
+      ...(existing?.is_default ? {} : { is_active: form.has("is_active") }),
       is_popular: form.has("is_popular"),
       sort_rank: Number(form.get("sort_rank") || 0),
       receives_leads: form.has("receives_leads"),

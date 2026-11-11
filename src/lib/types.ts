@@ -907,7 +907,8 @@ export interface AdminPlanInput {
   name: string;
   tagline: string | null;
   features: string[];
-  is_active: boolean;
+  /** Left out for the default plan: it can't be archived, so it has no "On sale" switch. */
+  is_active?: boolean;
   is_popular: boolean;
   sort_rank: number;
   receives_leads: boolean;
