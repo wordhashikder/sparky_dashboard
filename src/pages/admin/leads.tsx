@@ -528,7 +528,9 @@ function SentTo({
         <p className="text-sm">
           {requestStatus === "new"
             ? "Not sent to anyone yet."
-            : "No installer covered this postcode, so the team was alerted."}
+            : requestStatus === "pending_location"
+              ? "Waiting for the postcode lookup, which is unavailable. It is retried about every minute, and the installers are matched and emailed as soon as it answers. The homeowner sees nothing unusual. You can also choose installers yourself below."
+              : "No installer covered this postcode, so the team was alerted."}
         </p>
       )}
     </section>
@@ -580,9 +582,11 @@ function AssignInstallers({ quote }: { quote: AdminQuote }) {
               : "Choose installers"}
           </h3>
           <p className="text-xs text-subtle">
-            Installers who cover the address come first. They get the usual
-            new-lead email. Free installers can be sent it too: they upgrade
-            before they can respond.
+            {quote.status === "pending_location"
+              ? "The postcode lookup is unavailable, so installers are listed A to Z without distances: check the postcode in the request. "
+              : "Installers who cover the address come first. "}
+            They get the usual new-lead email. Free installers can be sent it
+            too: they upgrade before they can respond.
           </p>
         </div>
         <Button

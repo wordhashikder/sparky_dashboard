@@ -44,6 +44,8 @@ export const quoteStatusLabels: Record<QuoteStatus, string> = {
   new: "New",
   matched: "Matched",
   unmatched: "Unmatched",
+  // The postcode lookup was down: the request is matched automatically once it is back.
+  pending_location: "Postcode check pending",
 };
 
 /** How far a quote request has got (see the API's `services/lead_stats.py`). */

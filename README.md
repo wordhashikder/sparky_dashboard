@@ -20,16 +20,27 @@ Old `/admin/...` links still work: they redirect to the new address.
 Team members join by invitation: Users & roles › Invite someone emails a link to
 `/accept-invite?token=…`, where they choose a password.
 
-The stack is React 19, Vite, React Router, TanStack Query and Tailwind CSS 4, using the
-public site's colours and fonts.
+The stack is React 19, Vite, React Router 7, TanStack Query, Tailwind CSS 4 and TypeScript,
+with Biome for linting, using the public site's colours and fonts.
 
-## Run it locally
+## Quick start
+
+You need Node.js 24 and the API running (see `backend/README.md`).
 
 ```bash
-cp .env.example .env.local      # VITE_API_URL and VITE_SITE_URL
 npm install
 npm run dev                     # http://localhost:5173
 ```
+
+The defaults point at a local API and website. To use other addresses, create `.env.local`:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `VITE_API_URL` | `http://localhost:8000/api/v1` | API address, including `/api/v1` |
+| `VITE_SITE_URL` | `http://localhost:3000` | Public website, used for "view on site" links |
+
+`VITE_*` values are baked into the bundle at build time and are visible to anyone, so never
+put a secret in them.
 
 The API must allow this origin. In `backend/.env`, set:
 
@@ -54,6 +65,8 @@ To get demo logins (development only), run `uv run python -m app.cli seed-demo` 
 | `npm run preview` | Serves the production build locally |
 | `npm run lint` | Biome lint and format check |
 | `npm run typecheck` | TypeScript only |
+
+Before opening a pull request: `npm run lint && npm run build`.
 
 ## Deploy (Coolify)
 

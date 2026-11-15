@@ -27,7 +27,7 @@ export type SubscriptionStatus =
   | "past_due"
   | "canceled";
 export type LeadStatus = "sent" | "viewed" | "contacted" | "won" | "lost";
-export type QuoteStatus = "new" | "matched" | "unmatched";
+export type QuoteStatus = "new" | "matched" | "unmatched" | "pending_location";
 export type ReviewStatus = "pending" | "published" | "rejected";
 export type BlogPostStatus = "draft" | "published";
 export type OfferStatus = "sent" | "accepted" | "declined" | "withdrawn";
