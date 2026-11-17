@@ -5,6 +5,8 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import {
+  Archive,
+  ArchiveRestore,
   CheckCircle2,
   ExternalLink,
   MapPin,
@@ -41,6 +43,7 @@ import {
   stageTones,
 } from "@/lib/labels";
 import type {
+  AdminEnquiry,
   AdminQuote,
   AdminQuoteMatch,
   LeadStage,
@@ -51,8 +54,8 @@ import { useDebounced } from "@/lib/use-debounced";
 import { cn } from "@/lib/utils";
 
 type Tab = "quotes" | "enquiries";
-type Chip = "all" | "held" | LeadStage;
-const CHIPS: Chip[] = ["all", "held", "open", "awaiting", "closed"];
+type Chip = "all" | "held" | LeadStage | "archived";
+const CHIPS: Chip[] = ["all", "held", "open", "awaiting", "closed", "archived"];
 
 const chipLabels: Record<Chip, string> = {
   all: "All",
@@ -60,7 +63,62 @@ const chipLabels: Record<Chip, string> = {
   open: stageLabels.open,
   awaiting: stageLabels.awaiting,
   closed: stageLabels.closed,
+  archived: "Archived",
 };
+
+/** Requests still waiting for the team (nothing sent to installers yet). */
+const WAITING_STATUSES: QuoteStatus[] = [
+  "new",
+  "unmatched",
+  "pending_location",
+];
+
+/**
+ * Archive or restore a quote request. Archiving only tidies this back-office list and its
+ * counts: installers, homeowners and emails are not affected, and nothing is deleted.
+ */
+function useQuoteArchive() {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: ({ quote, archive }: { quote: QuoteRef; archive: boolean }) =>
+      archive
+        ? adminApi.archiveQuote(quote.id)
+        : adminApi.restoreQuote(quote.id),
+    onSuccess: (_saved, { quote, archive }) => {
+      toast.success(
+        archive
+          ? `Request ${quote.reference} archived. Find it under Archived.`
+          : `Request ${quote.reference} restored.`,
+      );
+      void queryClient.invalidateQueries({ queryKey: ["admin"] });
+    },
+    onError: (error) =>
+      toast.error(
+        error instanceof ApiError
+          ? error.message
+          : "Couldn't update the request.",
+      ),
+  });
+  return {
+    pending: (id: string) =>
+      mutation.isPending && mutation.variables?.quote.id === id,
+    archive(quote: QuoteRef) {
+      const waiting = WAITING_STATUSES.includes(quote.status);
+      const ok = window.confirm(
+        `Archive request ${quote.reference} from ${quote.first_name}?\n\n${
+          waiting
+            ? 'It has not been sent to any installer yet, so it will stop showing under "Waiting for you". '
+            : ""
+        }It is hidden from the list and the counts but kept, and installers are not affected. You can restore it from Archived.`,
+      );
+      if (ok) mutation.mutate({ quote, archive: true });
+    },
+    restore: (quote: QuoteRef) => mutation.mutate({ quote, archive: false }),
+  };
+}
+
+type QuoteRef = Pick<AdminQuote, "id" | "reference" | "first_name" | "status">;
 
 export default function AdminLeadsPage() {
   const [params, setParams] = useSearchParams();
@@ -100,12 +158,16 @@ function QuoteRequests() {
   const openId = params.get("open");
   const q = useDebounced(search);
 
+  const archivedView = chip === "archived";
   const filters = {
     q,
-    status: chip === "held" ? ("" as const) : status,
-    stage: chip === "all" || chip === "held" ? ("" as const) : chip,
+    status: chip === "held" || archivedView ? ("" as const) : status,
+    stage:
+      chip === "all" || chip === "held" || archivedView ? ("" as const) : chip,
     waiting: chip === "held",
+    archived: archivedView,
   };
+  const archiving = useQuoteArchive();
   const query = useQuery({
     queryKey: ["admin", "quotes", { page, ...filters }],
     queryFn: () => adminApi.quotes(page, filters),
@@ -196,7 +258,7 @@ function QuoteRequests() {
               className="pl-9"
             />
           </div>
-          {chip !== "held" ? (
+          {chip !== "held" && !archivedView ? (
             <>
               <label htmlFor="quote-status" className="sr-only">
                 Matching
@@ -222,6 +284,12 @@ function QuoteRequests() {
             </>
           ) : null}
         </div>
+        {archivedView ? (
+          <Notice tone="info" className="m-4">
+            Archived requests are hidden from the other lists and the counts,
+            and kept for your records. Use Restore to bring one back.
+          </Notice>
+        ) : null}
         {chip === "held" ? (
           <Notice tone="warning" className="m-4">
             These requests are waiting for you: automatic matching is off
@@ -237,7 +305,11 @@ function QuoteRequests() {
             onRetry={() => void query.refetch()}
           />
         ) : query.data.items.length === 0 ? (
-          <EmptyState title="No quote requests found" />
+          <EmptyState
+            title={
+              archivedView ? "No archived requests" : "No quote requests found"
+            }
+          />
         ) : (
           <Table>
             <thead>
@@ -247,6 +319,9 @@ function QuoteRequests() {
                 <Th>Quotes received</Th>
                 <Th>Stage</Th>
                 <Th>Received</Th>
+                <Th className="w-px">
+                  <span className="sr-only">Actions</span>
+                </Th>
               </tr>
             </thead>
             <tbody>
@@ -294,6 +369,33 @@ function QuoteRequests() {
                   <Td className="whitespace-nowrap">
                     {timeAgo(quote.created_at)}
                   </Td>
+                  <Td className="text-right whitespace-nowrap">
+                    {archivedView ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label={`Restore request ${quote.reference}`}
+                        icon={
+                          <ArchiveRestore aria-hidden className="size-3.5" />
+                        }
+                        loading={archiving.pending(quote.id)}
+                        onClick={() => archiving.restore(quote)}
+                      >
+                        Restore
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label={`Archive request ${quote.reference}`}
+                        icon={<Archive aria-hidden className="size-3.5" />}
+                        loading={archiving.pending(quote.id)}
+                        onClick={() => archiving.archive(quote)}
+                      >
+                        Archive
+                      </Button>
+                    )}
+                  </Td>
                 </Tr>
               ))}
             </tbody>
@@ -332,6 +434,7 @@ function QuoteDrawer({
     queryFn: () => adminApi.quoteMatches(id ?? ""),
     enabled: !!id,
   });
+  const archiving = useQuoteArchive();
   const data = quote.data;
   const rows: [string, string][] = data
     ? [
@@ -370,6 +473,7 @@ function QuoteDrawer({
       ) : data ? (
         <div className="space-y-6">
           <div className="flex flex-wrap items-center gap-3">
+            {data.archived_at ? <Badge tone="amber">Archived</Badge> : null}
             <Badge tone={stageTones[data.stage]}>
               {stageLabels[data.stage]}
             </Badge>
@@ -386,6 +490,29 @@ function QuoteDrawer({
                   ? "Waiting for you to choose installers"
                   : quoteStatusLabels[data.status]}
               </Badge>
+            )}
+            {data.archived_at ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="ml-auto"
+                icon={<ArchiveRestore aria-hidden className="size-3.5" />}
+                loading={archiving.pending(data.id)}
+                onClick={() => archiving.restore(data)}
+              >
+                Restore
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="ml-auto"
+                icon={<Archive aria-hidden className="size-3.5" />}
+                loading={archiving.pending(data.id)}
+                onClick={() => archiving.archive(data)}
+              >
+                Archive
+              </Button>
             )}
           </div>
           <dl className="grid grid-cols-[150px_1fr] gap-x-4 gap-y-2 text-sm">
@@ -677,63 +804,174 @@ function AssignInstallers({ quote }: { quote: AdminQuote }) {
 }
 
 function Enquiries() {
+  const toast = useToast();
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
+  const [archivedView, setArchivedView] = useState(false);
   const query = useQuery({
-    queryKey: ["admin", "enquiries", page],
-    queryFn: () => adminApi.enquiries(page),
+    queryKey: ["admin", "enquiries", archivedView, page],
+    queryFn: () => adminApi.enquiries(page, archivedView),
     placeholderData: keepPreviousData,
   });
-  if (query.isPending) return <PageLoader />;
-  if (query.isError)
-    return (
-      <ErrorState error={query.error} onRetry={() => void query.refetch()} />
-    );
+  const archiving = useMutation({
+    mutationFn: ({
+      enquiry,
+      archive,
+    }: {
+      enquiry: AdminEnquiry;
+      archive: boolean;
+    }) =>
+      archive
+        ? adminApi.archiveEnquiry(enquiry.id)
+        : adminApi.restoreEnquiry(enquiry.id),
+    onSuccess: (_saved, { archive }) => {
+      toast.success(
+        archive
+          ? "Enquiry archived. Find it under Archived."
+          : "Enquiry restored.",
+      );
+      void queryClient.invalidateQueries({ queryKey: ["admin"] });
+    },
+    onError: (error) =>
+      toast.error(
+        error instanceof ApiError
+          ? error.message
+          : "Couldn't update the enquiry.",
+      ),
+  });
+
+  function show(archived: boolean) {
+    setArchivedView(archived);
+    setPage(1);
+  }
+
   return (
-    <Card>
-      {query.data.items.length === 0 ? (
-        <EmptyState title="No profile enquiries yet" />
+    <>
+      <div
+        role="tablist"
+        aria-label="Enquiries shown"
+        className="mb-4 flex flex-wrap gap-2"
+      >
+        {[
+          { archived: false, label: "Active" },
+          { archived: true, label: "Archived" },
+        ].map((item) => {
+          const active = item.archived === archivedView;
+          return (
+            <button
+              key={item.label}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => show(item.archived)}
+              className={cn(
+                "inline-flex cursor-pointer items-center rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors",
+                active
+                  ? "border-ink bg-ink text-white"
+                  : "border-line bg-white text-ink hover:border-ink/30",
+              )}
+            >
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
+      {query.isPending ? (
+        <PageLoader />
+      ) : query.isError ? (
+        <ErrorState error={query.error} onRetry={() => void query.refetch()} />
       ) : (
-        <ul className="divide-y divide-line">
-          {query.data.items.map((enquiry) => (
-            <li key={enquiry.id} className="px-5 py-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-ink">
-                  {enquiry.name} → {enquiry.installer_name}
-                </p>
-                <div className="flex items-center gap-2">
-                  <Badge tone={enquiry.sent_to_installer ? "green" : "amber"}>
-                    {enquiry.sent_to_installer
-                      ? "Sent to installer"
-                      : "For the team"}
-                  </Badge>
-                  <span className="text-xs text-subtle">
-                    {timeAgo(enquiry.created_at)}
-                  </span>
-                </div>
-              </div>
-              <p className="mt-2 text-sm whitespace-pre-line text-ink">
-                {enquiry.message}
-              </p>
-              <p className="mt-2 text-[13px]">
-                <a
-                  href={`mailto:${enquiry.email}`}
-                  className="text-primary hover:underline"
-                >
-                  {enquiry.email}
-                </a>
-                {enquiry.phone ? ` · ${enquiry.phone}` : ""}
-              </p>
-            </li>
-          ))}
-        </ul>
+        <Card>
+          {archivedView ? (
+            <Notice tone="info" className="m-4">
+              Archived enquiries are hidden from the Active list and kept for
+              your records. Use Restore to bring one back.
+            </Notice>
+          ) : null}
+          {query.data.items.length === 0 ? (
+            <EmptyState
+              title={
+                archivedView
+                  ? "No archived enquiries"
+                  : "No profile enquiries yet"
+              }
+            />
+          ) : (
+            <ul className="divide-y divide-line">
+              {query.data.items.map((enquiry) => (
+                <li key={enquiry.id} className="px-5 py-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-ink">
+                      {enquiry.name} → {enquiry.installer_name}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        tone={enquiry.sent_to_installer ? "green" : "amber"}
+                      >
+                        {enquiry.sent_to_installer
+                          ? "Sent to installer"
+                          : "For the team"}
+                      </Badge>
+                      <span className="text-xs text-subtle">
+                        {timeAgo(enquiry.created_at)}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label={`${archivedView ? "Restore" : "Archive"} the enquiry from ${enquiry.name}`}
+                        icon={
+                          archivedView ? (
+                            <ArchiveRestore aria-hidden className="size-3.5" />
+                          ) : (
+                            <Archive aria-hidden className="size-3.5" />
+                          )
+                        }
+                        loading={
+                          archiving.isPending &&
+                          archiving.variables?.enquiry.id === enquiry.id
+                        }
+                        onClick={() => {
+                          if (
+                            archivedView ||
+                            window.confirm(
+                              `Archive the enquiry from ${enquiry.name} to ${enquiry.installer_name}?\n\nIt is hidden from the Active list but kept, and the installer is not affected. You can restore it from Archived.`,
+                            )
+                          )
+                            archiving.mutate({
+                              enquiry,
+                              archive: !archivedView,
+                            });
+                        }}
+                      >
+                        {archivedView ? "Restore" : "Archive"}
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-sm whitespace-pre-line text-ink">
+                    {enquiry.message}
+                  </p>
+                  <p className="mt-2 text-[13px]">
+                    <a
+                      href={`mailto:${enquiry.email}`}
+                      className="text-primary hover:underline"
+                    >
+                      {enquiry.email}
+                    </a>
+                    {enquiry.phone ? ` · ${enquiry.phone}` : ""}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Pagination
+            page={page}
+            pages={query.data.pages}
+            total={query.data.total}
+            onChange={setPage}
+            noun="enquiries"
+          />
+        </Card>
       )}
-      <Pagination
-        page={page}
-        pages={query.data.pages}
-        total={query.data.total}
-        onChange={setPage}
-        noun="enquiries"
-      />
-    </Card>
+    </>
   );
 }

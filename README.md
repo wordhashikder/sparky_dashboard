@@ -49,12 +49,9 @@ CORS_ORIGINS=http://localhost:3000,http://localhost:5173
 DASHBOARD_URL=http://localhost:5173
 ```
 
-To get demo logins (development only), run `uv run python -m app.cli seed-demo` in
-`backend/`:
-
-- Admin: `admin@demo.pickasparky.test` / `DemoAdmin123!`
-- Installers: `<slug>@demo.pickasparky.test` / `DemoPass123!`, for example
-  `greencharge-electrical@demo.pickasparky.test`
+Sign in with the administrator the API created from `ADMIN_EMAIL` and `ADMIN_PASSWORD`
+(see `backend/README.md`, *What a new database contains*). Installers register on the
+website, or claim their listing through the email sent to the address on it.
 
 ## Scripts
 
@@ -75,14 +72,14 @@ The app ships as a Docker image: a static build served by unprivileged nginx on 
 
 1. Create a new resource from this folder and choose the **Dockerfile** build pack.
 2. Add these **build variables**. They are baked into the bundle at build time:
-   - `VITE_API_URL=https://api.pickasparky.co.uk/api/v1`
-   - `VITE_SITE_URL=https://pickasparky.co.uk`
-3. Set the domain, for example `https://dashboard.pickasparky.co.uk`.
+   - `VITE_API_URL=https://api.pickasparky.com/api/v1`
+   - `VITE_SITE_URL=https://www.pickasparky.com`
+3. Set the domain, for example `https://dashboard.pickasparky.com`.
 4. On the API, set `CORS_ORIGINS` to include the Dashboard origin, and set
    `DASHBOARD_URL` to that origin as well.
 
 **Keep the Dashboard and the API on the same site** (for example
-`dashboard.pickasparky.co.uk` and `api.pickasparky.co.uk`). The sign-in cookie then works
+`dashboard.pickasparky.com` and `api.pickasparky.com`). The sign-in cookie then works
 with the default `SESSION_COOKIE_SAMESITE=lax`.
 
 ## How sign-in works
