@@ -212,12 +212,14 @@ export function AppShell() {
         admin ? "bg-canvas" : "bg-cream",
       )}
     >
-      <a
-        href="#main"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:rounded-lg focus:bg-ink focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+      {/* A button, not a `#main` link: no fragment is ever added to the address. */}
+      <button
+        type="button"
+        onClick={() => document.getElementById("main")?.focus()}
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:cursor-pointer focus:rounded-lg focus:bg-ink focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
       >
         Skip to content
-      </a>
+      </button>
 
       <Sidebar
         user={user}
@@ -239,7 +241,8 @@ export function AppShell() {
         <TopBar user={user} onMenu={() => setOpen(true)} counts={nav.data} />
         <main
           id="main"
-          className="mx-auto w-full max-w-[1320px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
+          tabIndex={-1}
+          className="mx-auto w-full max-w-[1320px] flex-1 px-4 py-6 focus:outline-none sm:px-6 lg:px-8 lg:py-8"
         >
           <Outlet />
         </main>

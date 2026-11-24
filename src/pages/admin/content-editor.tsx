@@ -255,9 +255,14 @@ function Editor({ pageKey, doc }: { pageKey: string; doc: ContentDocument }) {
               );
               return (
                 <li key={section.key}>
-                  <a
-                    href={`#section-${section.key}`}
-                    className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm whitespace-nowrap text-ink hover:bg-white"
+                  <button
+                    type="button"
+                    onClick={() =>
+                      document
+                        .getElementById(`section-${section.key}`)
+                        ?.scrollIntoView({ behavior: "smooth" })
+                    }
+                    className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm whitespace-nowrap text-ink hover:bg-white"
                   >
                     {section.label}
                     {hasError ? (
@@ -269,7 +274,7 @@ function Editor({ pageKey, doc }: { pageKey: string; doc: ContentDocument }) {
                         <span className="sr-only">changed</span>
                       </span>
                     ) : null}
-                  </a>
+                  </button>
                 </li>
               );
             })}

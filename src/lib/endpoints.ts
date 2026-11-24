@@ -276,6 +276,7 @@ export const adminApi = {
       status?: QuoteStatus | "";
       stage?: LeadStage | "";
       waiting?: boolean;
+      archived?: boolean;
     },
   ) =>
     http.get<Paginated<AdminQuote>>("/admin/quotes", {
@@ -283,6 +284,7 @@ export const adminApi = {
       page_size: 25,
       ...filters,
       waiting: filters.waiting ? true : undefined,
+      archived: filters.archived ? true : undefined,
     }),
   quoteStages: () => http.get<StageCounts>("/admin/quotes/stages"),
   quote: (id: string) => http.get<AdminQuote>(`/admin/quotes/${id}`),
@@ -294,11 +296,20 @@ export const adminApi = {
     http.post<AdminQuoteMatch[]>(`/admin/quotes/${id}/assign`, {
       installer_ids: installerIds,
     }),
-  enquiries: (page: number) =>
+  archiveQuote: (id: string) =>
+    http.post<AdminQuote>(`/admin/quotes/${id}/archive`),
+  restoreQuote: (id: string) =>
+    http.post<AdminQuote>(`/admin/quotes/${id}/restore`),
+  enquiries: (page: number, archived = false) =>
     http.get<Paginated<AdminEnquiry>>("/admin/enquiries", {
       page,
       page_size: 25,
+      archived: archived ? true : undefined,
     }),
+  archiveEnquiry: (id: string) =>
+    http.post<AdminEnquiry>(`/admin/enquiries/${id}/archive`),
+  restoreEnquiry: (id: string) =>
+    http.post<AdminEnquiry>(`/admin/enquiries/${id}/restore`),
   conversations: (
     page: number,
     filters: {

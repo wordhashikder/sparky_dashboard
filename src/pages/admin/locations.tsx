@@ -418,6 +418,17 @@ function LocationForm({
   );
   const [intro, setIntro] = useState(location.intro ?? "");
   const [extraBody, setExtraBody] = useState(location.extra_body ?? "");
+  // The photo fields are controlled so that an upload or removal (which the
+  // server applies at once) is also what "Save changes" sends afterwards.
+  const [imageUrl, setImageUrl] = useState(location.image_url ?? "");
+  const [imageAlt, setImageAlt] = useState(location.image_alt ?? "");
+  const [imageCredit, setImageCredit] = useState(location.image_credit ?? "");
+
+  const syncPhoto = (updated: AdminLocation) => {
+    setImageUrl(updated.image_url ?? "");
+    setImageAlt(updated.image_alt ?? "");
+    setImageCredit(updated.image_credit ?? "");
+  };
 
   const merge = (updated: AdminLocation) =>
     queryClient.setQueryData<AdminLocation[]>(KEY, (list) =>
@@ -468,11 +479,13 @@ function LocationForm({
       adminApi.uploadLocationImage(
         location.slug,
         file,
-        location.image_alt ?? "",
-        location.image_credit ?? "",
+        imageAlt.trim(),
+        imageCredit.trim(),
       ),
     onSuccess: (updated) => {
       merge(updated);
+      syncPhoto(updated);
+      setErrors({});
       toast.success("Photo uploaded.");
     },
     onError,
@@ -490,6 +503,8 @@ function LocationForm({
     mutationFn: () => adminApi.removeLocationImage(location.slug),
     onSuccess: (updated) => {
       merge(updated);
+      syncPhoto(updated);
+      setErrors({});
       toast.success("Photo removed: the page shows its local map instead.");
     },
     onError,
@@ -794,7 +809,8 @@ function LocationForm({
           <Input
             id={`${id}-image`}
             name="image_url"
-            defaultValue={location.image_url ?? ""}
+            value={imageUrl}
+            onChange={(event) => setImageUrl(event.target.value)}
           />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -807,7 +823,8 @@ function LocationForm({
               id={`${id}-alt`}
               name="image_alt"
               maxLength={160}
-              defaultValue={location.image_alt ?? ""}
+              value={imageAlt}
+              onChange={(event) => setImageAlt(event.target.value)}
             />
           </Field>
           <Field
@@ -819,7 +836,8 @@ function LocationForm({
               id={`${id}-credit`}
               name="image_credit"
               maxLength={160}
-              defaultValue={location.image_credit ?? ""}
+              value={imageCredit}
+              onChange={(event) => setImageCredit(event.target.value)}
               placeholder="Photo: Jane Doe"
             />
           </Field>

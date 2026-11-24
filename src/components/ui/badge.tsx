@@ -53,6 +53,7 @@ export const statusTone: Record<string, BadgeTone> = {
   lost: "red",
   suspended: "red",
   unmatched: "amber",
+  pending_location: "blue",
   withdrawn: "neutral",
   past_due: "red",
   premium: "violet",

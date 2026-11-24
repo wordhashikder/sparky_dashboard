@@ -2,8 +2,8 @@
 #
 # VITE_* values are baked in at build time, so pass them as build arguments
 # (in Coolify: "Build Variables"):
-#   VITE_API_URL=https://api.pickasparky.co.uk/api/v1
-#   VITE_SITE_URL=https://pickasparky.co.uk
+#   VITE_API_URL=https://api.pickasparky.com/api/v1
+#   VITE_SITE_URL=https://www.pickasparky.com
 
 FROM node:22.22-alpine AS build
 WORKDIR /app

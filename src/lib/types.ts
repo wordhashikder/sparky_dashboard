@@ -27,7 +27,7 @@ export type SubscriptionStatus =
   | "past_due"
   | "canceled";
 export type LeadStatus = "sent" | "viewed" | "contacted" | "won" | "lost";
-export type QuoteStatus = "new" | "matched" | "unmatched";
+export type QuoteStatus = "new" | "matched" | "unmatched" | "pending_location";
 export type ReviewStatus = "pending" | "published" | "rejected";
 export type BlogPostStatus = "draft" | "published";
 export type OfferStatus = "sent" | "accepted" | "declined" | "withdrawn";
@@ -474,6 +474,8 @@ export interface AdminQuote {
   phone: string | null;
   target_installer_id: string | null;
   created_at: string;
+  /** When the team archived it (hidden from the main list, kept), else null. */
+  archived_at: string | null;
   stage: LeadStage;
   installers_matched: number;
   quotes_sent: number;
@@ -487,6 +489,8 @@ export interface StageCounts {
   awaiting: number;
   closed: number;
   held: number;
+  /** Archived requests, which are not part of the counts above. */
+  archived: number;
 }
 
 export interface QuoteCandidate {
@@ -519,6 +523,8 @@ export interface AdminEnquiry extends Enquiry {
   installer_slug: string;
   installer_name: string;
   sent_to_installer: boolean;
+  /** When the team archived it (hidden from the main list, kept), else null. */
+  archived_at: string | null;
 }
 
 export interface AdminReview {

@@ -47,6 +47,10 @@ function Editor({ post }: { post?: AdminBlogPost }) {
     post?.seo_description ?? "",
   );
   const [excerpt, setExcerpt] = useState(post?.excerpt ?? "");
+  // Controlled so a cover upload (applied by the server at once) is also what
+  // "Save" sends afterwards, instead of the address the page opened with.
+  const [coverUrl, setCoverUrl] = useState(post?.cover_image_url ?? "");
+  const [coverAlt, setCoverAlt] = useState(post?.cover_image_alt ?? "");
 
   const onError = (error: unknown) => {
     if (error instanceof ApiError && error.fields) setErrors(error.fields);
@@ -86,12 +90,10 @@ function Editor({ post }: { post?: AdminBlogPost }) {
   });
   const upload = useMutation({
     mutationFn: (file: File) =>
-      adminApi.uploadBlogCover(
-        post?.id ?? "",
-        file,
-        post?.cover_image_alt ?? "",
-      ),
+      adminApi.uploadBlogCover(post?.id ?? "", file, coverAlt.trim()),
     onSuccess: (saved) => {
+      setCoverUrl(saved.cover_image_url ?? "");
+      setCoverAlt(saved.cover_image_alt ?? "");
       queryClient.setQueryData(["admin", "blog-post", saved.id], saved);
       void refresh();
       toast.success("Cover image uploaded.");
@@ -372,7 +374,8 @@ function Editor({ post }: { post?: AdminBlogPost }) {
                 <Input
                   id="cover_image_url"
                   name="cover_image_url"
-                  defaultValue={post?.cover_image_url ?? ""}
+                  value={coverUrl}
+                  onChange={(event) => setCoverUrl(event.target.value)}
                 />
               </Field>
               <Field
@@ -384,7 +387,8 @@ function Editor({ post }: { post?: AdminBlogPost }) {
                   id="cover_image_alt"
                   name="cover_image_alt"
                   maxLength={160}
-                  defaultValue={post?.cover_image_alt ?? ""}
+                  value={coverAlt}
+                  onChange={(event) => setCoverAlt(event.target.value)}
                 />
               </Field>
             </CardBody>
