@@ -468,7 +468,7 @@ function PlanDrawer({
           <Checkbox
             name="full_public_profile"
             defaultChecked={existing?.full_public_profile ?? false}
-            label="Full public profile (accreditations, photos, every detail)"
+            label="Full public profile (photos and every detail)"
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <Field

@@ -11,6 +11,9 @@ export const config = {
   siteUrl: trimSlash(import.meta.env.VITE_SITE_URL ?? "http://localhost:3000"),
 };
 
+/** Widest area an installer can cover, in miles. Must match the API (nationwide companies). */
+export const MAX_COVERAGE_MILES = 1000;
+
 /** Links to the public website. Pages end with a slash, as on the site. */
 export const siteLinks = {
   home: `${config.siteUrl}/`,

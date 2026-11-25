@@ -37,12 +37,12 @@ import { siteLinks } from "@/lib/config";
 import { adminApi, type InstallerFilters } from "@/lib/endpoints";
 import { formatDate } from "@/lib/format";
 import {
-  accreditationLabels,
   installerStatusLabels,
+  schemeName,
   sourceLabels,
   subscriptionLabels,
 } from "@/lib/labels";
-import { usePlanChoices } from "@/lib/queries";
+import { useAccreditationSchemes, usePlanChoices } from "@/lib/queries";
 import type {
   AdminInstaller,
   AdminInstallerUpdate,
@@ -346,6 +346,7 @@ function InstallerDrawer({
 }) {
   const queryClient = useQueryClient();
   const plans = usePlanChoices();
+  const schemes = useAccreditationSchemes().data;
   const toast = useToast();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const query = useQuery({
@@ -591,7 +592,7 @@ function InstallerDrawer({
                         className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm"
                       >
                         <span className="text-ink">
-                          {accreditationLabels[item.scheme]}
+                          {schemeName(schemes, item.scheme)}
                           {item.registration_number ? (
                             <span className="ml-2 text-xs text-subtle">
                               {item.registration_number}

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { type FormEvent, useId, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
+import { MarkdownEditor } from "@/components/content/markdown-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -693,16 +694,18 @@ function LocationForm({
           htmlFor={`${id}-intro`}
           error={errors.intro}
           aside={`${intro.length.toLocaleString("en-GB")}/20,000`}
-          hint="Markdown: ## headings, **bold**, - bullet lists and [links](/page/). Leave blank for the standard text from Website content › Location pages."
+          hint="Use the buttons above the box. Leave blank for the standard text from Website content › Location pages."
         >
-          <Textarea
+          <MarkdownEditor
             id={`${id}-intro`}
             name="intro"
+            value={intro}
+            onChange={setIntro}
             rows={12}
             maxLength={20000}
-            value={intro}
-            onChange={(event) => setIntro(event.target.value)}
-            className="font-mono text-[13px]"
+            headings={1}
+            invalid={!!errors.intro}
+            describedBy={errors.intro ? `${id}-intro-error` : undefined}
           />
         </Field>
       </section>
@@ -734,16 +737,20 @@ function LocationForm({
           htmlFor={`${id}-extra-body`}
           error={errors.extra_body}
           aside={`${extraBody.length.toLocaleString("en-GB")}/20,000`}
-          hint="Markdown: ## headings, **bold**, - bullet lists and [links](/page/)."
+          hint="Use the buttons above the box."
         >
-          <Textarea
+          <MarkdownEditor
             id={`${id}-extra-body`}
             name="extra_body"
+            value={extraBody}
+            onChange={setExtraBody}
             rows={8}
             maxLength={20000}
-            value={extraBody}
-            onChange={(event) => setExtraBody(event.target.value)}
-            className="font-mono text-[13px]"
+            headings={1}
+            invalid={!!errors.extra_body}
+            describedBy={
+              errors.extra_body ? `${id}-extra-body-error` : undefined
+            }
           />
         </Field>
       </section>

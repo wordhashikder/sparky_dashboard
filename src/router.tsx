@@ -53,6 +53,11 @@ const Installers = lazy(() => import("@/pages/admin/installers"));
 const Locations = lazy(() => import("@/pages/admin/locations"));
 const ContentList = lazy(() => import("@/pages/admin/content-list"));
 const ContentEditor = lazy(() => import("@/pages/admin/content-editor"));
+const PagesList = lazy(() => import("@/pages/admin/pages-list"));
+const PageEditor = lazy(() => import("@/pages/admin/page-editor"));
+const AccreditationSchemes = lazy(
+  () => import("@/pages/admin/accreditation-schemes"),
+);
 const BlogList = lazy(() => import("@/pages/admin/blog-list"));
 const BlogEditor = lazy(() => import("@/pages/admin/blog-editor"));
 const Reviews = lazy(() => import("@/pages/admin/reviews"));
@@ -243,6 +248,15 @@ export const router = createBrowserRouter([
           page("/installers", <ByRole team={Installers} module="installers" />),
           page("/locations", <ByRole team={Locations} module="locations" />),
           page("/content", <ByRole team={ContentList} module="content" />),
+          page("/content/pages", <ByRole team={PagesList} module="content" />),
+          page(
+            "/content/pages/:pageId",
+            <ByRole team={PageEditor} module="content" />,
+          ),
+          page(
+            "/content/accreditations",
+            <ByRole team={AccreditationSchemes} module="content" />,
+          ),
           page(
             "/content/:key",
             <ByRole team={ContentEditor} module="content" />,

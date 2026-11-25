@@ -44,3 +44,12 @@ export function usePlanChoices() {
     staleTime: 60_000,
   });
 }
+
+/** The accreditation schemes (names and order) for pickers and labels. */
+export function useAccreditationSchemes() {
+  return useQuery({
+    queryKey: ["accreditation-schemes"],
+    queryFn: publicApi.accreditationSchemes,
+    staleTime: 5 * 60_000,
+  });
+}

@@ -12,17 +12,16 @@ import { PageHeader } from "@/components/ui/page-header";
 import { ErrorState, PageLoader } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api";
-import { siteLinks } from "@/lib/config";
+import { MAX_COVERAGE_MILES, siteLinks } from "@/lib/config";
 import { installerApi } from "@/lib/endpoints";
 import { formatDate } from "@/lib/format";
 import {
-  accreditationLabels,
   installerStatusLabels,
   serviceLabels,
   subscriptionLabels,
 } from "@/lib/labels";
+import { useAccreditationSchemes } from "@/lib/queries";
 import type {
-  AccreditationScheme,
   InstallerProfile,
   InstallerUpdate,
   ServiceKey,
@@ -227,13 +226,14 @@ function BusinessDetails({ profile }: { profile: InstallerProfile }) {
           label="Service radius (miles)"
           htmlFor="coverage_radius_miles"
           error={errors.coverage_radius_miles}
+          hint={`Up to ${MAX_COVERAGE_MILES.toLocaleString("en-GB")} miles, for companies that work nationwide.`}
         >
           <Input
             id="coverage_radius_miles"
             name="coverage_radius_miles"
             type="number"
             min={1}
-            max={100}
+            max={MAX_COVERAGE_MILES}
             defaultValue={profile.coverage_radius_miles}
           />
         </Field>
@@ -383,6 +383,10 @@ function AccreditationsCard({ profile }: { profile: InstallerProfile }) {
   const held = new Map(
     profile.accreditations.map((item) => [item.scheme, item]),
   );
+  // The schemes on offer, plus any already held that the team has since switched off.
+  const schemes = (useAccreditationSchemes().data ?? []).filter(
+    (scheme) => scheme.is_active || held.has(scheme.key),
+  );
   return (
     <Section
       title="Accreditations"
@@ -390,13 +394,11 @@ function AccreditationsCard({ profile }: { profile: InstallerProfile }) {
       saving={saving}
       onSubmit={(form) =>
         save({
-          accreditations: (
-            Object.keys(accreditationLabels) as AccreditationScheme[]
-          )
-            .filter((scheme) => form.get(`acc-${scheme}`) === "on")
+          accreditations: schemes
+            .filter((scheme) => form.get(`acc-${scheme.key}`) === "on")
             .map((scheme) => ({
-              scheme,
-              registration_number: text(form, `reg-${scheme}`) || null,
+              scheme: scheme.key,
+              registration_number: text(form, `reg-${scheme.key}`) || null,
             })),
         })
       }
@@ -405,40 +407,38 @@ function AccreditationsCard({ profile }: { profile: InstallerProfile }) {
         <Notice tone="error">{errors.accreditations}</Notice>
       ) : null}
       <div className="divide-y divide-line rounded-xl border border-line">
-        {(Object.keys(accreditationLabels) as AccreditationScheme[]).map(
-          (scheme) => {
-            const item = held.get(scheme);
-            return (
-              <div
-                key={scheme}
-                className="flex flex-wrap items-center gap-3 px-4 py-3"
-              >
-                <Checkbox
-                  name={`acc-${scheme}`}
-                  defaultChecked={!!item}
-                  label={accreditationLabels[scheme]}
-                  className="w-32"
-                />
-                <label className="sr-only" htmlFor={`reg-${scheme}`}>
-                  {accreditationLabels[scheme]} registration number
-                </label>
-                <Input
-                  id={`reg-${scheme}`}
-                  name={`reg-${scheme}`}
-                  defaultValue={item?.registration_number ?? ""}
-                  placeholder="Registration number (optional)"
-                  className="h-9 max-w-64 flex-1"
-                  maxLength={60}
-                />
-                {item ? (
-                  <Badge tone={item.verified ? "green" : "amber"}>
-                    {item.verified ? "Verified" : "Awaiting check"}
-                  </Badge>
-                ) : null}
-              </div>
-            );
-          },
-        )}
+        {schemes.map((scheme) => {
+          const item = held.get(scheme.key);
+          return (
+            <div
+              key={scheme.key}
+              className="flex flex-wrap items-center gap-3 px-4 py-3"
+            >
+              <Checkbox
+                name={`acc-${scheme.key}`}
+                defaultChecked={!!item}
+                label={scheme.name}
+                className="w-32"
+              />
+              <label className="sr-only" htmlFor={`reg-${scheme.key}`}>
+                {scheme.name} registration number
+              </label>
+              <Input
+                id={`reg-${scheme.key}`}
+                name={`reg-${scheme.key}`}
+                defaultValue={item?.registration_number ?? ""}
+                placeholder="Registration number (optional)"
+                className="h-9 max-w-64 flex-1"
+                maxLength={60}
+              />
+              {item ? (
+                <Badge tone={item.verified ? "green" : "amber"}>
+                  {item.verified ? "Verified" : "Awaiting check"}
+                </Badge>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
     </Section>
   );

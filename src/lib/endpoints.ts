@@ -2,6 +2,9 @@ import { http, request } from "./api";
 import { sessionRole } from "./session-role";
 import type {
   AccessSession,
+  AccreditationSchemeInfo,
+  AccreditationSchemeInput,
+  AdminAccreditationScheme,
   AdminBlogPost,
   AdminContactMessage,
   AdminCustomer,
@@ -14,6 +17,7 @@ import type {
   AdminLocationCreate,
   AdminLocationUpdate,
   AdminOverview,
+  AdminPage,
   AdminPlan,
   AdminPlanInput,
   AdminQuote,
@@ -51,6 +55,8 @@ import type {
   NavCounts,
   Offer,
   OfferCreate,
+  PageCreate,
+  PageUpdate,
   Paginated,
   PaymentsOverview,
   Photo,
@@ -72,6 +78,9 @@ import type {
 export const publicApi = {
   platform: () =>
     http.get<{ platform_name: string; support_email: string }>("/platform"),
+  /** The accreditation schemes installers can list (the team manages them). */
+  accreditationSchemes: () =>
+    http.get<AccreditationSchemeInfo[]>("/accreditation-schemes"),
 };
 
 export const authApi = {
@@ -207,6 +216,35 @@ export const adminApi = {
   resendInvite: (id: string) =>
     http.post<TeamMember>(`/admin/team/${id}/resend`),
   withdrawInvite: (id: string) => http.delete(`/admin/team/${id}`),
+
+  pages: () => http.get<AdminPage[]>("/admin/pages"),
+  page: (id: string) => http.get<AdminPage>(`/admin/pages/${id}`),
+  createPage: (body: PageCreate) => http.post<AdminPage>("/admin/pages", body),
+  updatePage: (id: string, body: PageUpdate) =>
+    http.patch<AdminPage>(`/admin/pages/${id}`, body),
+  deletePage: (id: string) => http.delete(`/admin/pages/${id}`),
+  previewPage: (id: string) =>
+    http.post<{ token: string; expires_in: number }>(
+      `/admin/pages/${id}/preview`,
+    ),
+
+  accreditationSchemes: () =>
+    http.get<AdminAccreditationScheme[]>("/admin/accreditation-schemes"),
+  createAccreditationScheme: (body: AccreditationSchemeInput) =>
+    http.post<AdminAccreditationScheme>("/admin/accreditation-schemes", body),
+  updateAccreditationScheme: (
+    key: string,
+    body: Partial<AccreditationSchemeInput> & {
+      is_active?: boolean;
+      position?: number;
+    },
+  ) =>
+    http.patch<AdminAccreditationScheme>(
+      `/admin/accreditation-schemes/${key}`,
+      body,
+    ),
+  deleteAccreditationScheme: (key: string) =>
+    http.delete(`/admin/accreditation-schemes/${key}`),
 
   contentPages: () => http.get<ContentSummary[]>("/admin/content"),
   content: (key: string) => http.get<ContentDocument>(`/admin/content/${key}`),

@@ -3,10 +3,12 @@ import {
   BookOpen,
   ChevronRight,
   ExternalLink,
+  FilePlus2,
   FileText,
   Globe,
   LayoutTemplate,
   Scale,
+  ShieldCheck,
 } from "lucide-react";
 import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +67,64 @@ export default function ContentListPage() {
         </Card>
       ) : (
         <div className="space-y-6">
+          <section aria-labelledby="group-yours">
+            <div className="mb-3 flex items-center gap-2.5">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-primary-soft text-primary">
+                <FilePlus2 aria-hidden className="size-4" />
+              </span>
+              <div>
+                <h2 id="group-yours" className="text-[15px] font-semibold">
+                  Pages you create
+                </h2>
+                <p className="text-xs text-subtle">
+                  New pages with your own text, images and address, and the
+                  accreditation schemes.
+                </p>
+              </div>
+            </div>
+            <Card className="overflow-hidden">
+              <ul className="divide-y divide-line">
+                {[
+                  {
+                    to: "/content/pages",
+                    icon: FilePlus2,
+                    label: "Pages",
+                    text: "The four main pages, their supporting pages and the accreditation pages. Create, edit and publish them here.",
+                  },
+                  {
+                    to: "/content/accreditations",
+                    icon: ShieldCheck,
+                    label: "Accreditation schemes",
+                    text: "NICEIC, TrustMark, SELECT and the rest: their names, badges and the wording on profile cards.",
+                  },
+                ].map((entry) => (
+                  <li key={entry.to}>
+                    <Link
+                      to={entry.to}
+                      className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-surface"
+                    >
+                      <entry.icon
+                        aria-hidden
+                        className="size-5 shrink-0 text-primary"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-ink">
+                          {entry.label}
+                        </p>
+                        <p className="mt-0.5 truncate text-xs text-subtle">
+                          {entry.text}
+                        </p>
+                      </div>
+                      <ChevronRight
+                        aria-hidden
+                        className="size-4 shrink-0 text-subtle"
+                      />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          </section>
           {[...groups.entries()].map(([group, pages]) => {
             const Icon = groupIcons[group] ?? FileText;
             return (

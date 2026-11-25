@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Trash2, Upload } from "lucide-react";
 import { type FormEvent, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
+import { MarkdownEditor } from "@/components/content/markdown-editor";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/form";
@@ -47,6 +48,7 @@ function Editor({ post }: { post?: AdminBlogPost }) {
     post?.seo_description ?? "",
   );
   const [excerpt, setExcerpt] = useState(post?.excerpt ?? "");
+  const [body, setBody] = useState(post?.body ?? "");
   // Controlled so a cover upload (applied by the server at once) is also what
   // "Save" sends afterwards, instead of the address the page opened with.
   const [coverUrl, setCoverUrl] = useState(post?.cover_image_url ?? "");
@@ -140,7 +142,7 @@ function Editor({ post }: { post?: AdminBlogPost }) {
       </Link>
       <PageHeader
         title={post ? "Edit article" : "New article"}
-        description="Articles are written in Markdown: ## for headings, - for lists, **bold**, [links](https://…)."
+        description="Write with the buttons above the text box. The preview shows how it will look."
         actions={
           post ? (
             <Button
@@ -209,12 +211,17 @@ function Editor({ post }: { post?: AdminBlogPost }) {
                 />
               </Field>
               <Field label="Article" htmlFor="body" error={errors.body}>
-                <Textarea
+                <MarkdownEditor
                   id="body"
                   name="body"
+                  value={body}
+                  onChange={setBody}
                   rows={22}
-                  defaultValue={post?.body}
-                  className="font-mono text-[13px]"
+                  images
+                  preview="article"
+                  defaultPreview
+                  invalid={!!errors.body}
+                  describedBy={errors.body ? "body-error" : undefined}
                 />
               </Field>
             </CardBody>

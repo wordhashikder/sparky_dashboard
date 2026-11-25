@@ -14,13 +14,10 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api";
+import { MAX_COVERAGE_MILES } from "@/lib/config";
 import { adminApi } from "@/lib/endpoints";
-import {
-  accreditationLabels,
-  installerStatusLabels,
-  serviceLabels,
-} from "@/lib/labels";
-import { usePlanChoices } from "@/lib/queries";
+import { installerStatusLabels, serviceLabels } from "@/lib/labels";
+import { useAccreditationSchemes, usePlanChoices } from "@/lib/queries";
 import type {
   AccreditationScheme,
   AdminInstaller,
@@ -31,7 +28,6 @@ import type {
   ServiceKey,
 } from "@/lib/types";
 
-const SCHEMES = Object.keys(accreditationLabels) as AccreditationScheme[];
 const SERVICES = Object.keys(serviceLabels) as ServiceKey[];
 const text = (form: FormData, name: string) =>
   String(form.get(name) ?? "").trim();
@@ -54,6 +50,9 @@ export function AddInstallerDrawer({
   const toast = useToast();
   const queryClient = useQueryClient();
   const plans = usePlanChoices();
+  const schemes = (useAccreditationSchemes().data ?? []).filter(
+    (scheme) => scheme.is_active,
+  );
   const formRef = useRef<HTMLFormElement>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const create = useMutation({
@@ -181,7 +180,7 @@ export function AddInstallerDrawer({
             name="coverage_radius_miles"
             type="number"
             min={1}
-            max={100}
+            max={MAX_COVERAGE_MILES}
             defaultValue={15}
           />
         </Field>
@@ -231,12 +230,12 @@ export function AddInstallerDrawer({
             Accreditations (shown as unverified until you check them)
           </legend>
           <div className="flex flex-wrap gap-x-5 gap-y-2">
-            {SCHEMES.map((scheme) => (
+            {schemes.map((scheme) => (
               <Checkbox
-                key={scheme}
+                key={scheme.key}
                 name="accreditations"
-                value={scheme}
-                label={accreditationLabels[scheme]}
+                value={scheme.key}
+                label={scheme.name}
               />
             ))}
           </div>
@@ -462,6 +461,12 @@ export function DetailsForm({
   onSave: (body: AdminInstallerUpdate) => void;
 }) {
   const id = useId();
+  // The schemes on offer, plus any this business already holds that were switched off.
+  const schemes = (useAccreditationSchemes().data ?? []).filter(
+    (scheme) =>
+      scheme.is_active ||
+      installer.accreditations.some((item) => item.scheme === scheme.key),
+  );
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -482,12 +487,12 @@ export function DetailsForm({
         .map((area) => area.trim())
         .filter(Boolean),
       services: SERVICES.filter((service) => form.get(`service_${service}`)),
-      accreditations: SCHEMES.filter((scheme) =>
-        form.get(`scheme_${scheme}`),
-      ).map((scheme) => ({
-        scheme,
-        registration_number: text(form, `reg_${scheme}`) || null,
-      })),
+      accreditations: schemes
+        .filter((scheme) => form.get(`scheme_${scheme.key}`))
+        .map((scheme) => ({
+          scheme: scheme.key,
+          registration_number: text(form, `reg_${scheme.key}`) || null,
+        })),
     };
     const postcode = text(form, "base_postcode");
     if (postcode && postcode !== installer.base_postcode)
@@ -543,7 +548,7 @@ export function DetailsForm({
           name="coverage_radius_miles"
           type="number"
           min={1}
-          max={100}
+          max={MAX_COVERAGE_MILES}
           defaultValue={installer.coverage_radius_miles}
         />
       </Field>
@@ -660,23 +665,23 @@ export function DetailsForm({
           Changing a registration number clears its “Verified” tick below.
         </p>
         <div className="grid gap-2">
-          {SCHEMES.map((scheme) => {
+          {schemes.map((scheme) => {
             const current = installer.accreditations.find(
-              (item) => item.scheme === scheme,
+              (item) => item.scheme === scheme.key,
             );
             return (
               <div
-                key={scheme}
+                key={scheme.key}
                 className="flex flex-wrap items-center justify-between gap-2"
               >
                 <Checkbox
-                  name={`scheme_${scheme}`}
+                  name={`scheme_${scheme.key}`}
                   defaultChecked={!!current}
-                  label={accreditationLabels[scheme]}
+                  label={scheme.name}
                 />
                 <Input
-                  name={`reg_${scheme}`}
-                  aria-label={`${accreditationLabels[scheme]} registration number`}
+                  name={`reg_${scheme.key}`}
+                  aria-label={`${scheme.name} registration number`}
                   placeholder="Registration number"
                   maxLength={60}
                   className="h-8 max-w-48"

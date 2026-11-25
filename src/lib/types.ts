@@ -33,13 +33,8 @@ export type BlogPostStatus = "draft" | "published";
 export type OfferStatus = "sent" | "accepted" | "declined" | "withdrawn";
 export type MessageSender = "installer" | "homeowner" | "team" | "system";
 export type DirectoryColumn = "nearby" | "popular" | "more_in_area" | "other";
-export type AccreditationScheme =
-  | "ozev"
-  | "napit"
-  | "niceic"
-  | "trustmark"
-  | "mcs"
-  | "elecsa";
+/** A scheme's key ("niceic", "select", ...). The team manages the list in the Dashboard. */
+export type AccreditationScheme = string;
 export type ServiceKey =
   | "ev_charger_installation"
   | "domestic_electrical"
@@ -931,3 +926,93 @@ export interface PlanChoice {
   is_active: boolean;
   is_default: boolean;
 }
+
+// ---- Accreditation schemes and website pages (Website content) -----------------------
+
+export interface AccreditationSchemeInfo {
+  key: string;
+  name: string;
+  badge: string | null;
+  card_title: string;
+  card_text: string;
+  is_active: boolean;
+  /** The scheme's page, once it is published and has content. */
+  href: string | null;
+}
+
+export interface AdminAccreditationScheme extends AccreditationSchemeInfo {
+  position: number;
+  installer_count: number;
+  page_id: string | null;
+  page_path: string | null;
+  page_published: boolean;
+  page_has_content: boolean;
+}
+
+export interface AccreditationSchemeInput {
+  name: string;
+  badge: string | null;
+  card_title: string;
+  card_text: string;
+}
+
+export interface PageSection {
+  heading: string;
+  body: string;
+  image_url: string | null;
+  image_alt: string | null;
+}
+
+export interface PageFaq {
+  question: string;
+  answer: string;
+}
+
+export interface AdminPage {
+  id: string;
+  path: string;
+  parent_path: string | null;
+  parent_title: string | null;
+  previous_paths: string[];
+  title: string;
+  eyebrow: string | null;
+  intro: string | null;
+  hero_image_url: string | null;
+  hero_image_alt: string | null;
+  sections: PageSection[];
+  faq: PageFaq[];
+  seo_title: string | null;
+  seo_description: string | null;
+  is_published: boolean;
+  scheme_key: string | null;
+  has_content: boolean;
+  is_indexable: boolean;
+  child_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PageCreate {
+  title: string;
+  path: string;
+  parent_path: string | null;
+  is_published: boolean;
+}
+
+export type PageUpdate = Partial<
+  Pick<
+    AdminPage,
+    | "title"
+    | "path"
+    | "parent_path"
+    | "eyebrow"
+    | "intro"
+    | "hero_image_url"
+    | "hero_image_alt"
+    | "sections"
+    | "faq"
+    | "seo_title"
+    | "seo_description"
+    | "is_published"
+  >
+>;

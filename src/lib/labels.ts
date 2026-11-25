@@ -84,14 +84,15 @@ export const serviceLabels: Record<ServiceKey, string> = {
   eicr_testing: "EICR & Testing",
 };
 
-export const accreditationLabels: Record<AccreditationScheme, string> = {
-  ozev: "OZEV",
-  napit: "NAPIT",
-  niceic: "NICEIC",
-  trustmark: "TrustMark",
-  mcs: "MCS",
-  elecsa: "ELECSA",
-};
+/** The scheme's name from the live list, falling back to its key. */
+export function schemeName(
+  schemes: readonly { key: string; name: string }[] | undefined,
+  key: AccreditationScheme,
+) {
+  return (
+    schemes?.find((scheme) => scheme.key === key)?.name ?? key.toUpperCase()
+  );
+}
 
 export const directoryColumnLabels: Record<DirectoryColumn, string> = {
   nearby: "Nearby",
