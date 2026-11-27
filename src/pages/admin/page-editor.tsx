@@ -20,14 +20,22 @@ import { Field, Input, Notice, Select, Textarea } from "@/components/ui/form";
 import { ErrorState, PageLoader } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api";
+import { CARD_ICONS, cardIcon } from "@/lib/card-icons";
 import { siteLinks } from "@/lib/config";
 import { adminApi } from "@/lib/endpoints";
 import { timeAgo } from "@/lib/format";
-import type { AdminPage, PageFaq, PageSection, PageUpdate } from "@/lib/types";
+import type {
+  AdminPage,
+  PageFaq,
+  PageSection,
+  PageUpdate,
+  SectionCard,
+} from "@/lib/types";
 import { ACCREDITATIONS_PAGE, pageStatus } from "./pages-list";
 
 const MAX_SECTIONS = 30;
 const MAX_FAQ = 30;
+const MAX_CARDS = 12;
 const clone = <T,>(value: T): T => structuredClone(value);
 const same = (a: unknown, b: unknown) =>
   JSON.stringify(a) === JSON.stringify(b);
@@ -579,7 +587,13 @@ function SectionsCard({
         onClick={() =>
           onChange([
             ...sections,
-            { heading: "", body: "", image_url: null, image_alt: null },
+            {
+              heading: "",
+              body: "",
+              image_url: null,
+              image_alt: null,
+              cards: [],
+            },
           ])
         }
         icon={<Plus aria-hidden className="size-4" />}
@@ -659,6 +673,11 @@ function SectionEditor({
         label="Text"
         htmlFor={`${id}-body`}
         aside={`${section.body.length}/20000`}
+        hint={
+          section.cards?.length
+            ? "Optional here: this section has cards."
+            : undefined
+        }
       >
         <MarkdownEditor
           id={`${id}-body`}
@@ -699,7 +718,161 @@ function SectionEditor({
           ) : null}
         </div>
       </details>
+      <details open={!!section.cards?.length}>
+        <summary className="cursor-pointer text-[13px] font-semibold text-ink">
+          Cards (optional)
+        </summary>
+        <CardsEditor
+          cards={section.cards ?? []}
+          onChange={(cards) => onChange({ cards })}
+        />
+      </details>
     </fieldset>
+  );
+}
+
+// ---- Cards inside a section ----------------------------------------------------------
+
+/**
+ * A grid of cards shown after the section's text, two to a row on a wide screen: an icon, a
+ * title and a short description each.
+ */
+function CardsEditor({
+  cards,
+  onChange,
+}: {
+  cards: SectionCard[];
+  onChange: (cards: SectionCard[]) => void;
+}) {
+  const id = useId();
+  // Stable keys so a card keeps its focus and text while others move.
+  const keys = useRef<string[]>([]);
+  while (keys.current.length < cards.length)
+    keys.current.push(`${id}-${keys.current.length}-${Math.random()}`);
+  const update = (index: number, patch: Partial<SectionCard>) =>
+    onChange(
+      cards.map((item, at) => (at === index ? { ...item, ...patch } : item)),
+    );
+  const move = (from: number, to: number) => {
+    const next = [...cards];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    const [key] = keys.current.splice(from, 1);
+    keys.current.splice(to, 0, key);
+    onChange(next);
+  };
+  return (
+    <div className="mt-3 space-y-3">
+      <p className="text-xs text-subtle">
+        Each card has an icon, a title and a short description. They appear in a
+        grid after the text.
+      </p>
+      {cards.map((card, index) => {
+        const Icon = cardIcon(card.icon);
+        return (
+          <fieldset
+            key={keys.current[index]}
+            className="space-y-3 rounded-lg border border-line bg-surface/40 p-3"
+          >
+            <legend className="sr-only">Card {index + 1}</legend>
+            <div className="flex items-center justify-between gap-2">
+              <p className="flex items-center gap-2 text-xs font-semibold tracking-[0.1em] text-subtle uppercase">
+                <Icon aria-hidden className="size-4 text-primary" />
+                Card {index + 1}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled={index === 0}
+                  aria-label={`Move card ${index + 1} up`}
+                  onClick={() => move(index, index - 1)}
+                >
+                  <ArrowUp aria-hidden className="size-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled={index === cards.length - 1}
+                  aria-label={`Move card ${index + 1} down`}
+                  onClick={() => move(index, index + 1)}
+                >
+                  <ArrowDown aria-hidden className="size-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-red-600 hover:bg-red-50"
+                  aria-label={`Remove card ${index + 1}`}
+                  onClick={() => {
+                    keys.current.splice(index, 1);
+                    onChange(cards.filter((_, at) => at !== index));
+                  }}
+                >
+                  <Trash2 aria-hidden className="size-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
+              <Field label="Icon" htmlFor={`${keys.current[index]}-icon`}>
+                <Select
+                  id={`${keys.current[index]}-icon`}
+                  value={card.icon ?? ""}
+                  onChange={(event) =>
+                    update(index, { icon: event.target.value || null })
+                  }
+                >
+                  <option value="">Tick (default)</option>
+                  {CARD_ICONS.map((item) => (
+                    <option key={item.key} value={item.key}>
+                      {item.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Title" htmlFor={`${keys.current[index]}-title`}>
+                <Input
+                  id={`${keys.current[index]}-title`}
+                  value={card.title}
+                  maxLength={80}
+                  onChange={(event) =>
+                    update(index, { title: event.target.value })
+                  }
+                />
+              </Field>
+            </div>
+            <Field
+              label="Description"
+              htmlFor={`${keys.current[index]}-description`}
+              aside={`${card.description.length}/400`}
+            >
+              <Textarea
+                id={`${keys.current[index]}-description`}
+                value={card.description}
+                rows={3}
+                maxLength={400}
+                onChange={(event) =>
+                  update(index, { description: event.target.value })
+                }
+              />
+            </Field>
+          </fieldset>
+        );
+      })}
+      <Button
+        variant="outline"
+        disabled={cards.length >= MAX_CARDS}
+        onClick={() =>
+          onChange([
+            ...cards,
+            { icon: "shield-check", title: "", description: "" },
+          ])
+        }
+        icon={<Plus aria-hidden className="size-4" />}
+      >
+        Add a card
+      </Button>
+    </div>
   );
 }
 

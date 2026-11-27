@@ -886,6 +886,7 @@ export interface AdminPlan {
   full_public_profile: boolean;
   public_service_limit: number | null;
   max_gallery_photos: number;
+  shows_website_link: boolean;
   price_pence: number | null;
   currency: string;
   prices: {
@@ -917,6 +918,7 @@ export interface AdminPlanInput {
   full_public_profile: boolean;
   public_service_limit: number | null;
   max_gallery_photos: number;
+  shows_website_link: boolean;
   price_pence: number | null;
 }
 
@@ -956,11 +958,19 @@ export interface AccreditationSchemeInput {
   card_text: string;
 }
 
+/** One card in a section's grid. `icon` is a name from `lib/card-icons.ts`. */
+export interface SectionCard {
+  icon: string | null;
+  title: string;
+  description: string;
+}
+
 export interface PageSection {
   heading: string;
   body: string;
   image_url: string | null;
   image_alt: string | null;
+  cards?: SectionCard[];
 }
 
 export interface PageFaq {

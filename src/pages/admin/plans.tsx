@@ -183,6 +183,7 @@ export default function PlansPage() {
                           ? "Every service shown"
                           : `First ${plan.public_service_limit} service${plan.public_service_limit === 1 ? "" : "s"} shown`}
                         {plan.full_public_profile ? ", full profile" : ""}
+                        {plan.shows_website_link ? ", website link" : ""}
                       </li>
                       <li>
                         {plan.max_gallery_photos > 0
@@ -335,6 +336,7 @@ function PlanDrawer({
       accepts_direct_quotes: form.has("accepts_direct_quotes"),
       full_public_profile: form.has("full_public_profile"),
       public_service_limit: limit ? Number(limit) : null,
+      shows_website_link: form.has("shows_website_link"),
       max_gallery_photos: Number(form.get("max_gallery_photos") || 0),
       price_pence: price,
     });
@@ -469,6 +471,11 @@ function PlanDrawer({
             name="full_public_profile"
             defaultChecked={existing?.full_public_profile ?? false}
             label="Full public profile (photos and every detail)"
+          />
+          <Checkbox
+            name="shows_website_link"
+            defaultChecked={existing?.shows_website_link ?? false}
+            label="Show the company's website link on its public profile"
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <Field

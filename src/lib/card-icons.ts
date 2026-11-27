@@ -1,0 +1,67 @@
+import {
+  Award,
+  BadgeCheck,
+  BatteryCharging,
+  CircleCheck,
+  FileCheck,
+  Handshake,
+  HardHat,
+  Heart,
+  House,
+  KeyRound,
+  Leaf,
+  Lightbulb,
+  Lock,
+  type LucideIcon,
+  Mail,
+  MapPin,
+  Phone,
+  Plug,
+  PoundSterling,
+  Search,
+  ShieldCheck,
+  Star,
+  Sun,
+  ThumbsUp,
+  Timer,
+  Users,
+  Wrench,
+  Zap,
+} from "lucide-react";
+
+/**
+ * The icons a content card can show. The website draws the same names, and shows a tick for a
+ * name it does not know, so keep the names (the first column) when adding or removing icons.
+ */
+export const CARD_ICONS: { key: string; label: string; icon: LucideIcon }[] = [
+  { key: "shield-check", label: "Shield with tick", icon: ShieldCheck },
+  { key: "badge-check", label: "Verified badge", icon: BadgeCheck },
+  { key: "award", label: "Award", icon: Award },
+  { key: "users", label: "People", icon: Users },
+  { key: "hard-hat", label: "Hard hat", icon: HardHat },
+  { key: "zap", label: "Lightning", icon: Zap },
+  { key: "plug", label: "Plug", icon: Plug },
+  { key: "battery-charging", label: "Charging battery", icon: BatteryCharging },
+  { key: "home", label: "Home", icon: House },
+  { key: "map-pin", label: "Location pin", icon: MapPin },
+  { key: "timer", label: "Timer", icon: Timer },
+  { key: "phone", label: "Phone", icon: Phone },
+  { key: "mail", label: "Email", icon: Mail },
+  { key: "star", label: "Star", icon: Star },
+  { key: "thumbs-up", label: "Thumbs up", icon: ThumbsUp },
+  { key: "wrench", label: "Spanner", icon: Wrench },
+  { key: "leaf", label: "Leaf", icon: Leaf },
+  { key: "sun", label: "Sun", icon: Sun },
+  { key: "lightbulb", label: "Light bulb", icon: Lightbulb },
+  { key: "pound-sterling", label: "Pound", icon: PoundSterling },
+  { key: "file-check", label: "Checked document", icon: FileCheck },
+  { key: "handshake", label: "Handshake", icon: Handshake },
+  { key: "search", label: "Magnifier", icon: Search },
+  { key: "heart", label: "Heart", icon: Heart },
+  { key: "key", label: "Key", icon: KeyRound },
+  { key: "lock", label: "Padlock", icon: Lock },
+  { key: "circle-check", label: "Tick", icon: CircleCheck },
+];
+
+export const cardIcon = (key: string | null | undefined): LucideIcon =>
+  CARD_ICONS.find((item) => item.key === key)?.icon ?? CircleCheck;

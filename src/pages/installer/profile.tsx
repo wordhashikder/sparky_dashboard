@@ -344,7 +344,10 @@ function ServicesCard({ profile }: { profile: InstallerProfile }) {
               key={key}
               name="services"
               value={key}
-              defaultChecked={profile.services.includes(key)}
+              // A profile with no services yet starts with every one ticked.
+              defaultChecked={
+                profile.services.length === 0 || profile.services.includes(key)
+              }
               label={serviceLabels[key]}
             />
           ))}

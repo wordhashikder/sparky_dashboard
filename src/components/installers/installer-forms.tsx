@@ -250,7 +250,8 @@ export function AddInstallerDrawer({
                 key={service}
                 name="services"
                 value={service}
-                defaultChecked={service === "ev_charger_installation"}
+                // Every service starts ticked; untick the ones the company does not offer.
+                defaultChecked
                 label={serviceLabels[service]}
               />
             ))}
